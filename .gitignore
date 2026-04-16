@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local databases
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Secrets: copy .env.example to .env
+.env
+!.env.example
+
+# Coverage
+coverage/
+
+# macOS
+.DS_Store
