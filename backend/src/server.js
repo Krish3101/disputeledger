@@ -53,10 +53,6 @@ app.get('/complaints/assigned/:authorityId', complaintRoutes.getAssignedComplain
 
 // Start server
 app.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log(`API + UI server running on http://localhost:${PORT}`);
-  console.log('='.repeat(60));
-  
   if (!fs.existsSync(CCP_PATH)) {
     console.error('WARNING: Connection profile not found at:', CCP_PATH);
     console.error('Please ensure fabric-samples test-network is running and CCP_PATH is correct.');

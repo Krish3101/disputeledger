@@ -36,7 +36,6 @@ async function enrollAdmin(ccp) {
     type: 'X.509'
   };
   await wallet.put(adminId, identity);
-  console.log('Enrolled admin user and imported to wallet');
 }
 
 /**
@@ -70,7 +69,6 @@ async function registerUser(ccp, userId, attrs = []) {
     type: 'X.509'
   };
   await wallet.put(userId, x509Identity);
-  console.log(`Registered and enrolled ${userId}`);
 }
 
 /**
