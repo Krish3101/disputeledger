@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Complaint Management (Fabric)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    header p {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .card {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 25px;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .card h3 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card > p {
+      color: #6c757d;
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 12px;
+      font-weight: 600;
+      color: #495057;
+      font-size: 0.9rem;
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: all 0.3s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: linear-gradient(135deg, #8e9eab 0%, #6c757d 100%);
+    }
+
+    button.success {
+      background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+    }
+
+    button.danger {
+      background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .output {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      min-height: 50px;
+      display: none;
+    }
+
+    .output.show {
+      display: block;
+    }
+
+    .output.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .output.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+
+    .output.loading {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+    }
+
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+      margin-top: 10px;
+    }
+
+    .user-list {
+      margin-top: 15px;
+    }
+
+    .user-item {
+      background: white;
+      padding: 12px 16px;
+      margin: 8px 0;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #dee2e6;
+      transition: all 0.3s ease;
+    }
+
+    .user-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-authority {
+      background: #dc3545;
+      color: white;
+    }
+
+    .badge-citizen {
+      background: #007bff;
+      color: white;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .mb-8 {
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 768px) {
+      header h1 {
+        font-size: 1.8rem;
+      }
+
+      .content {
+        padding: 20px;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔗 Complaint Management System</h1>
+      <p>Blockchain-powered complaint tracking with Hyperledger Fabric</p>
+    </header>
+
+    <div class="content">
+
+      <!-- Initialize System -->
+      <div class="card">
+        <h3>1️⃣ Initialize System</h3>
+        <p>Enroll the admin identity to enable user registration and system operations.</p>
+        <button onclick="setup()">
+          <span id="setupBtn">Initialize Admin</span>
+        </button>
+        <div id="setupOut" class="output"></div>
+      </div>
+
+      <!-- User Management -->
+      <div class="card">
+        <h3>2️⃣ User Management</h3>
+        <p>Register new users and assign roles. Authority users can resolve complaints.</p>
+        <div class="row">
+          <div>
+            <label>User ID
+              <input id="reg_userId" placeholder="john-doe" autocomplete="off">
+            </label>
+          </div>
+          <div>
+            <label>Role
+              <select id="reg_role">
+                <option value="citizen">Citizen</option>
+                <option value="authority">Authority</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <button onclick="registerUser()" class="success">
+          <span id="regBtn">Register User</span>
+        </button>
+        <div id="registerOut" class="output"></div>
+        
+        <div style="margin-top: 20px;">
+          <button onclick="loadUsers()" class="secondary">
+            <span id="loadUsersBtn">Refresh User List</span>
+          </button>
+          <div id="userList" class="user-list"></div>
+        </div>
+      </div>
+
+      <!-- Create Complaint -->
+      <div class="card">
+        <h3>3️⃣ Create Complaint</h3>
+        <div class="row">
+          <div>
+            <label>Complaint ID
+              <input id="c_id" placeholder="cmp-001" autocomplete="off">
+            </label>
+          </div>
+          <div>
+            <label>Reporter
+              <input id="c_user" placeholder="john-doe" autocomplete="off">
+            </label>
+          </div>
+        </div>
+        <label>Description
+          <textarea id="c_desc" rows="3" placeholder="Describe the issue..."></textarea>
+        </label>
+        <label>Submit as User
+          <input id="c_as" placeholder="john-doe" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="createComplaint()">
+          <span id="createBtn">Create Complaint</span>
+        </button>
+        <div id="createOut" class="output"></div>
+      </div>
+
+      <!-- View Complaint -->
+      <div class="card">
+        <h3>4️⃣ View Complaint</h3>
+        <label>Complaint ID
+          <input id="r_id" placeholder="cmp-001" autocomplete="off">
+        </label>
+        <label>View as User
+          <input id="r_as" placeholder="john-doe" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="readComplaint()">
+          <span id="readBtn">View Complaint</span>
+        </button>
+        <div id="readOut" class="output"></div>
+      </div>
+
+      <!-- Query Complaints -->
+      <div class="card">
+        <h3>5️⃣ Query Complaints</h3>
+        <label>Filter by Status
+          <select id="g_status">
+            <option value="">All Complaints</option>
+            <option value="OPEN">Open Only</option>
+            <option value="RESOLVED">Resolved Only</option>
+          </select>
+        </label>
+        <label>Query as User
+          <input id="g_as" placeholder="john-doe" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="getByStatus()">
+          <span id="listBtn">Query Complaints</span>
+        </button>
+        <div id="listOut" class="output"></div>
+      </div>
+
+      <!-- Update Complaint -->
+      <div class="card">
+        <h3>6️⃣ Update Complaint</h3>
+        <label>Complaint ID
+          <input id="u_id" placeholder="cmp-001" autocomplete="off">
+        </label>
+        <label>New Description
+          <textarea id="u_desc" rows="3" placeholder="Updated description"></textarea>
+        </label>
+        <label>Update as User
+          <input id="u_as" placeholder="john-doe" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="updateComplaint()">
+          <span id="updateBtn">Update Complaint</span>
+        </button>
+        <div id="updateOut" class="output"></div>
+      </div>
+
+      <!-- Assign Complaint -->
+      <div class="card">
+        <h3>7️⃣ Assign Complaint</h3>
+        <div class="warning">⚠️ Requires authority role to assign complaints</div>
+        <label>Complaint ID
+          <input id="a_id" placeholder="cmp-001" autocomplete="off">
+        </label>
+        <label>Assign to Authority User
+          <input id="a_assignTo" placeholder="city-admin" autocomplete="off">
+        </label>
+        <label>Assign as Authority User
+          <input id="a_as" placeholder="admin-user" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="assignComplaint()">
+          <span id="assignBtn">Assign Complaint</span>
+        </button>
+        <div id="assignOut" class="output"></div>
+      </div>
+
+      <!-- View Assigned Complaints -->
+      <div class="card">
+        <h3>8️⃣ View Assigned Complaints</h3>
+        <label>Authority User ID
+          <input id="ga_authorityId" placeholder="city-admin" autocomplete="off">
+        </label>
+        <label>Query as User
+          <input id="ga_as" placeholder="john-doe" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="getAssignedComplaints()" class="secondary">
+          <span id="assignedBtn">View Assigned</span>
+        </button>
+        <div id="assignedOut" class="output"></div>
+      </div>
+
+      <!-- Resolve Complaint -->
+      <div class="card">
+        <h3>9️⃣ Resolve Complaint</h3>
+        <div class="warning">⚠️ Requires authority role to resolve complaints</div>
+        <label>Complaint ID
+          <input id="x_id" placeholder="cmp-001" autocomplete="off">
+        </label>
+        <label>Resolution Note
+          <textarea id="x_note" rows="3" placeholder="Describe the resolution..."></textarea>
+        </label>
+        <label>Resolve as Authority User
+          <input id="x_as" placeholder="city-admin" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="resolveComplaint()">
+          <span id="resolveBtn">Resolve Complaint</span>
+        </button>
+        <div id="resolveOut" class="output"></div>
+      </div>
+
+      <!-- Delete Complaint -->
+      <div class="card">
+        <h3>🔟 Delete Complaint</h3>
+        <div class="warning">⚠️ Requires authority role and permanently deletes the complaint</div>
+        <label>Complaint ID
+          <input id="d_id" placeholder="cmp-001" autocomplete="off">
+        </label>
+        <label>Delete as Authority User
+          <input id="d_as" placeholder="city-admin" class="mb-8" autocomplete="off">
+        </label>
+        <button onclick="deleteComplaint()" class="danger">
+          <span id="deleteBtn">Delete Complaint</span>
+        </button>
+        <div id="deleteOut" class="output"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Utility functions for better UX
+    function setLoading(buttonId, isLoading, text = '') {
+      const btn = document.getElementById(buttonId);
+      const parentButton = btn.closest('button');
+      
+      if (isLoading) {
+        btn.innerHTML = '<span class="spinner"></span> ' + (text || 'Loading...');
+        parentButton.disabled = true;
+      } else {
+        btn.textContent = text;
+        parentButton.disabled = false;
+      }
+    }
+
+    function showOutput(elementId, message, type = 'success') {
+      const element = document.getElementById(elementId);
+      element.className = `output show ${type}`;
+      element.textContent = message;
+      
+      // Auto-hide after 5 seconds for success messages
+      if (type === 'success') {
+        setTimeout(() => {
+          element.classList.remove('show');
+        }, 5000);
+      }
+    }
+
+    function formatJSON(data) {
+      return JSON.stringify(data, null, 2);
+    }
+
+    async function setup() {
+      setLoading('setupBtn', true, 'Initializing...');
+      try {
+        const r = await fetch('/setup', { method: 'POST' });
+        const j = await r.json();
+        
+        if (r.ok) {
+          showOutput('setupOut', j.message, 'success');
+        } else {
+          showOutput('setupOut', j.error || 'Setup failed', 'error');
+        }
+      } catch (e) {
+        showOutput('setupOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('setupBtn', false, 'Initialize Admin');
+      }
+    }
+
+    async function registerUser() {
+      const userId = document.getElementById('reg_userId').value.trim();
+      const role = document.getElementById('reg_role').value;
+      
+      if (!userId) {
+        showOutput('registerOut', 'User ID is required', 'error');
+        return;
+      }
+      
+      setLoading('regBtn', true, 'Registering...');
+      try {
+        const r = await fetch('/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, role })
+        });
+        const j = await r.json();
+        
+        if (r.ok) {
+          showOutput('registerOut', `✓ ${j.message}`, 'success');
+          document.getElementById('reg_userId').value = '';
+          loadUsers();
+        } else {
+          showOutput('registerOut', j.error || 'Registration failed', 'error');
+        }
+      } catch (e) {
+        showOutput('registerOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('regBtn', false, 'Register User');
+      }
+    }
+
+    async function loadUsers() {
+      setLoading('loadUsersBtn', true, 'Loading...');
+      try {
+        const r = await fetch('/users');
+        const j = await r.json();
+        
+        const userListDiv = document.getElementById('userList');
+        
+        if (r.ok) {
+          if (j.users.length === 0) {
+            userListDiv.innerHTML = '<p style="color: #6c757d; text-align: center; padding: 20px;">No users registered yet.</p>';
+          } else {
+            const header = '<h4 style="margin: 15px 0 10px; color: #495057;">Registered Users:</h4>';
+            const items = j.users.map(u => `
+              <div class="user-item">
+                <span style="font-weight: 600;">${u.userId}</span>
+              </div>
+            `).join('');
+            userListDiv.innerHTML = header + items;
+          }
+        } else {
+          userListDiv.innerHTML = `<p style="color: #dc3545; padding: 10px;">${j.error || 'Failed to load users'}</p>`;
+        }
+      } catch (e) {
+        document.getElementById('userList').innerHTML = 
+          `<p style="color: #dc3545; padding: 10px;">Network error: ${e.message}</p>`;
+      } finally {
+        setLoading('loadUsersBtn', false, 'Refresh User List');
+      }
+    }
+
+    async function createComplaint() {
+      const id = document.getElementById('c_id').value.trim();
+      const user = document.getElementById('c_user').value.trim();
+      const description = document.getElementById('c_desc').value.trim();
+      const as = document.getElementById('c_as').value.trim();
+      
+      if (!id || !user || !description || !as) {
+        showOutput('createOut', 'All fields are required', 'error');
+        return;
+      }
+      
+      setLoading('createBtn', true, 'Creating...');
+      try {
+        const r = await fetch(`/complaints?as=${encodeURIComponent(as)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, user, description })
+        });
+        
+        if (r.ok) {
+          const data = await r.json();
+          showOutput('createOut', '✓ Complaint created successfully\n\n' + formatJSON(data), 'success');
+          document.getElementById('c_id').value = '';
+          document.getElementById('c_desc').value = '';
+        } else {
+          const error = await r.text();
+          showOutput('createOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('createOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('createBtn', false, 'Create Complaint');
+      }
+    }
+
+    async function readComplaint() {
+      const id = document.getElementById('r_id').value.trim();
+      const as = document.getElementById('r_as').value.trim();
+      
+      if (!id || !as) {
+        showOutput('readOut', 'Complaint ID and User are required', 'error');
+        return;
+      }
+      
+      setLoading('readBtn', true, 'Loading...');
+      try {
+        const r = await fetch(`/complaints/${encodeURIComponent(id)}?as=${encodeURIComponent(as)}`);
+        
+        if (r.ok) {
+          const data = await r.json();
+          showOutput('readOut', formatJSON(data), 'success');
+        } else {
+          const error = await r.text();
+          showOutput('readOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('readOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('readBtn', false, 'View Complaint');
+      }
+    }
+
+    async function getByStatus() {
+      const status = document.getElementById('g_status').value;
+      const as = document.getElementById('g_as').value.trim();
+      
+      if (!as) {
+        showOutput('listOut', 'User is required', 'error');
+        return;
+      }
+      
+      setLoading('listBtn', true, 'Querying...');
+      try {
+        let url = `/complaints?as=${encodeURIComponent(as)}`;
+        if (status) {
+          url += `&status=${encodeURIComponent(status)}`;
+        }
+        
+        const r = await fetch(url);
+        
+        if (r.ok) {
+          const data = await r.json();
+          const count = Array.isArray(data) ? data.length : 0;
+          showOutput('listOut', `Found ${count} complaint(s)\n\n${formatJSON(data)}`, 'success');
+        } else {
+          const error = await r.text();
+          showOutput('listOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('listOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('listBtn', false, 'Query Complaints');
+      }
+    }
+
+    async function resolveComplaint() {
+      const id = document.getElementById('x_id').value.trim();
+      const note = document.getElementById('x_note').value.trim();
+      const as = document.getElementById('x_as').value.trim();
+      
+      if (!id || !as) {
+        showOutput('resolveOut', 'Complaint ID and User are required', 'error');
+        return;
+      }
+      
+      setLoading('resolveBtn', true, 'Resolving...');
+      try {
+        const r = await fetch(`/complaints/${encodeURIComponent(id)}/resolve?as=${encodeURIComponent(as)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note })
+        });
+        
+        if (r.ok) {
+          const data = await r.json();
+          showOutput('resolveOut', '✓ Complaint resolved successfully\n\n' + formatJSON(data), 'success');
+          document.getElementById('x_note').value = '';
+        } else {
+          const error = await r.text();
+          showOutput('resolveOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('resolveOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('resolveBtn', false, 'Resolve Complaint');
+      }
+    }
+
+    async function updateComplaint() {
+      const id = document.getElementById('u_id').value.trim();
+      const description = document.getElementById('u_desc').value.trim();
+      const as = document.getElementById('u_as').value.trim();
+      
+      if (!id || !description || !as) {
+        showOutput('updateOut', 'All fields are required', 'error');
+        return;
+      }
+      
+      setLoading('updateBtn', true, 'Updating...');
+      try {
+        const r = await fetch(`/complaints/${encodeURIComponent(id)}?as=${encodeURIComponent(as)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description })
+        });
+        
+        if (r.ok) {
+          const data = await r.json();
+          showOutput('updateOut', '✓ Complaint updated successfully\n\n' + formatJSON(data), 'success');
+        } else {
+          const error = await r.text();
+          showOutput('updateOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('updateOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('updateBtn', false, 'Update Complaint');
+      }
+    }
+
+    async function assignComplaint() {
+      const id = document.getElementById('a_id').value.trim();
+      const assignedTo = document.getElementById('a_assignTo').value.trim();
+      const as = document.getElementById('a_as').value.trim();
+      
+      if (!id || !assignedTo || !as) {
+        showOutput('assignOut', 'All fields are required', 'error');
+        return;
+      }
+      
+      setLoading('assignBtn', true, 'Assigning...');
+      try {
+        const r = await fetch(`/complaints/${encodeURIComponent(id)}/assign?as=${encodeURIComponent(as)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignedTo })
+        });
+        
+        if (r.ok) {
+          const data = await r.json();
+          showOutput('assignOut', '✓ Complaint assigned successfully\n\n' + formatJSON(data), 'success');
+        } else {
+          const error = await r.text();
+          showOutput('assignOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('assignOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('assignBtn', false, 'Assign Complaint');
+      }
+    }
+
+    async function getAssignedComplaints() {
+      const authorityId = document.getElementById('ga_authorityId').value.trim();
+      const as = document.getElementById('ga_as').value.trim();
+      
+      if (!authorityId || !as) {
+        showOutput('assignedOut', 'Authority ID and User are required', 'error');
+        return;
+      }
+      
+      setLoading('assignedBtn', true, 'Loading...');
+      try {
+        const r = await fetch(`/complaints/assigned/${encodeURIComponent(authorityId)}?as=${encodeURIComponent(as)}`);
+        
+        if (r.ok) {
+          const data = await r.json();
+          const count = Array.isArray(data) ? data.length : 0;
+          showOutput('assignedOut', `Found ${count} assigned complaint(s)\n\n${formatJSON(data)}`, 'success');
+        } else {
+          const error = await r.text();
+          showOutput('assignedOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('assignedOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('assignedBtn', false, 'View Assigned');
+      }
+    }
+
+    async function deleteComplaint() {
+      const id = document.getElementById('d_id').value.trim();
+      const as = document.getElementById('d_as').value.trim();
+      
+      if (!id || !as) {
+        showOutput('deleteOut', 'Complaint ID and User are required', 'error');
+        return;
+      }
+      
+      if (!confirm(`⚠️ Are you sure you want to permanently delete complaint ${id}?\n\nThis action cannot be undone.`)) {
+        return;
+      }
+      
+      setLoading('deleteBtn', true, 'Deleting...');
+      try {
+        const r = await fetch(`/complaints/${encodeURIComponent(id)}?as=${encodeURIComponent(as)}`, {
+          method: 'DELETE'
+        });
+        
+        if (r.ok) {
+          const data = await r.json();
+          showOutput('deleteOut', '✓ ' + data.message + '\n\n' + formatJSON(data.deletedComplaint), 'success');
+          document.getElementById('d_id').value = '';
+        } else {
+          const error = await r.text();
+          showOutput('deleteOut', error, 'error');
+        }
+      } catch (e) {
+        showOutput('deleteOut', `Network error: ${e.message}`, 'error');
+      } finally {
+        setLoading('deleteBtn', false, 'Delete Complaint');
+      }
+    }
+
+    // Load users on page load
+    window.addEventListener('load', () => {
+      loadUsers();
+    });
+  </script>
+</body>
+</html>

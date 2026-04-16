@@ -1,0 +1,33 @@
+{
+  "name": "complaint-contract",
+  "version": "2.0.0",
+  "description": "Hyperledger Fabric chaincode for a complaint management system with dynamic user management, role-based access control, and assignment features",
+  "license": "Apache-2.0",
+  "author": "Krish3101",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Krish3101/complaint-fabric-starter.git"
+  },
+  "keywords": [
+    "hyperledger",
+    "fabric",
+    "chaincode",
+    "smart-contract",
+    "blockchain"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "start": "fabric-chaincode-node start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.0",
+    "fabric-shim": "^2.5.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
