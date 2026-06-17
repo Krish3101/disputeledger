@@ -8,16 +8,13 @@ const { getContract } = require('../services/fabricService');
 async function createComplaint(req, res) {
   try {
     const { id, user, description } = req.body;
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     const complaintId = validateComplaintId(id);
     const userId = validateUserId(user);
     const desc = validateText(description, 'Description', 1000);
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.submitTransaction('CreateComplaint', complaintId, userId, desc);
@@ -35,14 +32,11 @@ async function createComplaint(req, res) {
  */
 async function readComplaint(req, res) {
   try {
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     const complaintId = validateComplaintId(req.params.id);
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.evaluateTransaction('ReadComplaint', complaintId);
@@ -62,11 +56,8 @@ async function listComplaints(req, res) {
   try {
     const { status, as } = req.query;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
-    const asUser = validateUserId(as);
+    
     const { gateway, contract } = await getContract(asUser);
     
     if (!status) {
@@ -96,15 +87,12 @@ async function listComplaints(req, res) {
 async function resolveComplaint(req, res) {
   try {
     const note = req.body.note || '';
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     const complaintId = validateComplaintId(req.params.id);
     const resolutionNote = note ? validateText(note, 'Resolution note', 1000) : '';
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.submitTransaction('ResolveComplaint', complaintId, resolutionNote);
@@ -123,11 +111,8 @@ async function resolveComplaint(req, res) {
 async function updateComplaint(req, res) {
   try {
     const { description } = req.body;
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     if (!description) {
       return res.status(400).json({ error: 'description is required' });
@@ -135,7 +120,7 @@ async function updateComplaint(req, res) {
     
     const complaintId = validateComplaintId(req.params.id);
     const newDescription = validateText(description, 'Description', 1000);
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.submitTransaction('UpdateComplaint', complaintId, newDescription);
@@ -153,14 +138,11 @@ async function updateComplaint(req, res) {
  */
 async function deleteComplaint(req, res) {
   try {
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     const complaintId = validateComplaintId(req.params.id);
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.submitTransaction('DeleteComplaint', complaintId);
@@ -179,11 +161,8 @@ async function deleteComplaint(req, res) {
 async function assignComplaint(req, res) {
   try {
     const { assignedTo } = req.body;
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     if (!assignedTo) {
       return res.status(400).json({ error: 'assignedTo is required in request body' });
@@ -191,7 +170,7 @@ async function assignComplaint(req, res) {
     
     const complaintId = validateComplaintId(req.params.id);
     const assignToUser = validateUserId(assignedTo);
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.submitTransaction('AssignComplaint', complaintId, assignToUser);
@@ -209,14 +188,11 @@ async function assignComplaint(req, res) {
  */
 async function getAssignedComplaints(req, res) {
   try {
-    const as = req.query.as;
+    const asUser = req.user;
     
-    if (!as) {
-      return res.status(400).json({ error: 'Query parameter "as" is required to specify the user identity' });
-    }
     
     const authorityId = validateUserId(req.params.authorityId);
-    const asUser = validateUserId(as);
+    
     
     const { gateway, contract } = await getContract(asUser);
     const result = await contract.evaluateTransaction('GetAssignedComplaints', authorityId);

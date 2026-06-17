@@ -20,14 +20,10 @@
   },
   "main": "src/index.js",
   "scripts": {
-    "start": "fabric-chaincode-node start",
-    "test": "jest"
+    "start": "fabric-chaincode-node start"
   },
   "dependencies": {
     "fabric-contract-api": "^2.5.0",
     "fabric-shim": "^2.5.0"
-  },
-  "devDependencies": {
-    "jest": "^29.7.0"
   }
 }

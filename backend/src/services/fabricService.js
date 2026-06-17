@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { Wallets, Gateway } = require('fabric-network');
 const FabricCAServices = require('fabric-ca-client');
-const { CCP_PATH, CHANNEL, CHAINCODE, MSPID } = require('../config');
+const { CCP_PATH, CHANNEL, CHAINCODE, MSPID, ADMIN_PW } = require('../config');
 
 let wallet;
 
@@ -29,7 +29,7 @@ async function enrollAdmin(ccp) {
   const caInfo = ccp.certificateAuthorities[Object.keys(ccp.certificateAuthorities)[0]];
   const ca = new FabricCAServices(caInfo.url, { trustedRoots: caInfo.tlsCACerts.pem, verify: false });
 
-  const enrollment = await ca.enroll({ enrollmentID: 'admin', enrollmentSecret: 'adminpw' });
+  const enrollment = await ca.enroll({ enrollmentID: 'admin', enrollmentSecret: ADMIN_PW });
   const identity = {
     credentials: { certificate: enrollment.certificate, privateKey: enrollment.key.toBytes() },
     mspId: MSPID,

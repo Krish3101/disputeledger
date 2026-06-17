@@ -20,6 +20,7 @@ const rateLimitMiddleware = require('./middleware/rateLimit');
 const systemRoutes = require('./api/system');
 const userRoutes = require('./api/users');
 const complaintRoutes = require('./api/complaints');
+const { requireAuth } = require('./middleware/auth');
 
 const app = express();
 
@@ -30,7 +31,7 @@ app.use(compression());
 app.use(cors());
 app.use(morgan('dev'));
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'web')));
+app.use(express.static(path.join(__dirname, '../../frontend')));
 
 // System routes
 app.get('/health', systemRoutes.health);
@@ -38,10 +39,12 @@ app.post('/setup', systemRoutes.setup);
 
 // User routes
 app.post('/users/register', userRoutes.registerNewUser);
+app.post('/users/login', userRoutes.loginUser);
 app.get('/users', userRoutes.listUsers);
 app.get('/users/:userId/exists', userRoutes.checkUserExists);
 
 // Complaint routes
+app.use('/complaints', requireAuth);
 app.post('/complaints', complaintRoutes.createComplaint);
 app.get('/complaints/:id', complaintRoutes.readComplaint);
 app.get('/complaints', complaintRoutes.listComplaints);

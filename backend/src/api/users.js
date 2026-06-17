@@ -1,5 +1,7 @@
 const { validateUserId, validateText } = require('../utils/validation');
 const { loadCCP, registerUser, getWallet } = require('../services/fabricService');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config');
 
 /**
  * POST /users/register
@@ -67,9 +69,33 @@ async function checkUserExists(req, res) {
     res.status(500).json({ error: e.message });
   }
 }
+/**
+ * POST /users/login
+ * Login and receive JWT
+ */
+async function loginUser(req, res) {
+  try {
+    const { userId } = req.body;
+    const sanitizedUserId = validateUserId(userId);
+    const wallet = await getWallet();
+    const identity = await wallet.get(sanitizedUserId);
+    
+    if (!identity) {
+      return res.status(401).json({ error: 'User not found. Please register first.' });
+    }
+    
+    const token = jwt.sign({ userId: sanitizedUserId }, JWT_SECRET, { expiresIn: '2h' });
+    res.json({ ok: true, token, userId: sanitizedUserId });
+  } catch (e) {
+    console.error('Error logging in:', e);
+    res.status(500).json({ error: e.message });
+  }
+}
+
 
 module.exports = {
   registerNewUser,
   listUsers,
   checkUserExists,
+  loginUser,
 };

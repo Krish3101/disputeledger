@@ -1,103 +1,84 @@
-# Complaint Fabric Starter (Final Merged Version)
+# Complaint Management System (Version 1)
 
-This folder contains the cleaned and consolidated final project assembled from multiple repository versions (`github version`, `v1`, `v2`, `v3`, `v4`, `v5`).
+This repository contains the foundational **Version 1** of a blockchain-based Complaint Management System. It was originally built as a project to demonstrate core Hyperledger Fabric concepts such as chaincode implementation, Certificate Authority (CA) user enrollment, and Role-Based Access Control (RBAC).
 
-## Project Overview
+## Architecture Overview
+The system implements a classic 3-tier architecture:
+1. **Frontend**: A vanilla HTML/JS Single Page Application (SPA).
+2. **Backend**: An Express.js REST API serving as middleware. It uses a **Custodial Wallet Pattern**, where the server securely holds the users' X.509 Fabric certificates and signs transactions on their behalf using the legacy `fabric-network` SDK.
+3. **Blockchain**: A Hyperledger Fabric `ComplaintContract` smart contract enforcing the core business logic.
 
-The project implements a blockchain-backed complaint management platform using Hyperledger Fabric.
+---
 
-- Chaincode for complaint lifecycle management
-- Express API for system, user, and complaint operations
-- Static web UI served by the API
-- Role-based access control (`citizen` and `authority`)
+## Complete Setup from Scratch
 
-## Tech Stack
+To run this project, you must first set up a local Hyperledger Fabric blockchain network.
 
-- Node.js (CommonJS modules)
-- Express.js
-- Hyperledger Fabric SDK (`fabric-network`, `fabric-ca-client`)
-- Hyperledger Fabric Contract API (`fabric-contract-api`)
-- Jest (unit tests)
-- ESLint + Prettier
+### 1. Prerequisites
+Ensure you have the following installed on your machine (macOS/Linux/Windows WSL):
+* **Docker Desktop** (or **OrbStack** for Mac users) running in the background.
+* **Node.js** (v18+ recommended) and `npm`.
+* **Git** and **cURL**.
 
-## Setup Instructions (Static, No Execution Required)
-
-1. Ensure a compatible Node.js runtime and a Hyperledger Fabric test network are available in your environment.
-2. Configure environment variables in `app/.env` based on `final_version/.env.example`.
-3. Confirm the connection profile path (`CCP_PATH`) points to your Fabric connection JSON.
-4. Use the chaincode package under `chaincode/complaint-js` for deployment in your Fabric network.
-5. Use the API package under `app/` for service startup and endpoint access.
-
-## Folder Structure
-
-```text
-final_version/
-  app/
-    src/
-      api/            # REST route handlers
-      config/         # Environment and runtime configuration
-      middleware/     # Security and rate limiting
-      services/       # Fabric gateway and CA integration
-      utils/          # Validation helpers
-      web/            # Static frontend assets
-      server.js       # Main Express server
-    tests/            # API-side test suite
-    wallet/           # Runtime identities (ignored in VCS)
-    server.js         # Entry-point delegating to src/server.js
-    package.json
-  chaincode/
-    complaint-js/
-      src/            # Smart contract implementation
-      tests/          # Chaincode tests
-      package.json
-  docs/               # API and operational documentation
-  .env.example
-  .gitignore
-  README.md
-  CHANGELOG.md
-  SUMMARY.md
-  STRUCTURE.md
+### 2. Install Hyperledger Fabric
+Open a new terminal and navigate to your home directory to install the Fabric Docker images and the `fabric-samples` repository:
+```bash
+cd ~
+curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh
+bash ./install-fabric.sh docker samples binary
 ```
 
-## Notes
+### 3. Start the Blockchain Network
+Navigate into the newly downloaded test network folder, clean up any old containers, and start a fresh network with Certificate Authorities (CA):
+```bash
+cd ~/fabric-samples/test-network
+./network.sh down
+./network.sh up createChannel -c mychannel -ca
+```
 
-- This final version was assembled using static analysis only.
-- No source project folder outside `final_version/` is modified.
-- The included tests are preserved from source versions and should be expanded for full production coverage.
+### 4. Deploy the Chaincode
+While still in the `test-network` directory, deploy the `complaint` smart contract from this repository to the blockchain. *(Replace `~/Workspace/cr/complaint-system-main` with your actual path if different).*
+```bash
+./network.sh deployCC -ccn complaint -ccp ~/Workspace/cr/complaint-system-main/chaincode -ccl javascript
+```
+
+### 5. Start the Node.js Backend
+Open a **new terminal tab** and navigate to the backend folder of this project:
+```bash
+cd ~/Workspace/cr/complaint-system-main/backend
+npm install
+```
+
+Configure your environment variables:
+```bash
+cp ../.env.example ../.env
+```
+*(Open `.env` and ensure `CCP_PATH` points accurately to `~/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json` if you installed Fabric somewhere else).*
+
+Start the server:
+```bash
+npm start
+```
+
+### 6. Access the Application
+Open your web browser to:
+**[http://localhost:3000](http://localhost:3000)**
 
 ---
 
-## 📖 Additional Documentation
+## API Overview
+Authentication is handled via JWT. Obtain a token by registering and logging in, then pass it as `Authorization: Bearer <token>`.
 
-- **[SETUP.md](SETUP.md)** - Complete step-by-step setup guide with troubleshooting
-- **[PRODUCTION.md](PRODUCTION.md)** - Production deployment, monitoring, and security hardening
-- **[API.md](API.md)** - Complete API reference with examples
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development guidelines and contribution process
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
-
----
-
-## 🎨 UI Improvements
-
-The web interface now includes:
-- ✨ Modern gradient design with responsive layout
-- 🔄 Loading states with spinner animations
-- ✅ Success/error feedback with auto-dismissing messages
-- 📱 Mobile-friendly responsive design
-- 🎯 Better form validation and error handling
-- 🔍 Enhanced user experience with clear visual feedback
-- 📊 JSON formatting for API responses
-- ⚠️ Warning indicators for authority-only operations
+* `POST /users/register` - Registers a user with the CA (requires `userId` and `role`).
+* `POST /users/login` - Returns a JWT for API access.
+* `POST /complaints` - Creates a new complaint.
+* `GET /complaints` - Fetches all complaints from the ledger.
+* `PATCH /complaints/:id/resolve` - Resolves a complaint (Authority only).
 
 ---
 
-## 7) Done in ~1 hour
-
-**Timebox** (approx):
-- 0–10 min: Prereqs & Docker
-- 10–25 min: Start test-network with CAs
-- 25–35 min: Copy & deploy chaincode
-- 35–45 min: `npm install` and start API/UI
-- 45–60 min: Create & resolve complaints, verify ACL
-
-Happy building! 🚀
+## Historical Context & Limitations
+As Version 1, this project demonstrates initial architectural decisions and has known limitations that set the stage for V2:
+* **Legacy SDK:** Relies on the deprecated `fabric-network` SDK rather than the modern `@hyperledger/fabric-gateway`.
+* **State Parsing Risks:** Ledger retrieval (`GetAllComplaints`) pulls all records into memory at once without pagination.
+* **Basic Identity Management:** Uses a monolithic Express server to custody all keys, trading true blockchain non-repudiation for frontend UX simplicity.

@@ -6,7 +6,8 @@ const PORT = process.env.PORT || 3000;
 const CHANNEL = process.env.CHANNEL || 'mychannel';
 const CHAINCODE = process.env.CHAINCODE || 'complaint';
 const MSPID = process.env.MSPID || 'Org1MSP';
-
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const ADMIN_PW = process.env.ADMIN_PW || 'adminpw';
 // Default to the standard test-network connection profile path
 const defaultCcp = path.join(
   os.homedir(),
@@ -25,4 +26,6 @@ module.exports = {
   CHAINCODE,
   MSPID,
   CCP_PATH,
+  JWT_SECRET,
+  ADMIN_PW,
 };

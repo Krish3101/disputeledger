@@ -2,7 +2,7 @@
   "name": "complaint-api",
   "version": "2.0.0",
   "description": "Express API + static UI for Fabric complaint management with dynamic user management and role-based access control",
-  "main": "server.js",
+  "main": "src/server.js",
   "author": "Krish3101",
   "license": "Apache-2.0",
   "repository": {
@@ -18,13 +18,11 @@
     "chaincode"
   ],
   "scripts": {
-    "start": "node server.js",
-    "dev": "NODE_ENV=development node server.js",
-    "preflight": "node preflight.js",
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "test": "jest"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "body-parser": "^1.20.2",
@@ -37,11 +35,11 @@
     "fabric-ca-client": "^2.2.19",
     "fabric-network": "^2.2.19",
     "helmet": "^7.1.0",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
-    "jest": "^29.7.0",
     "prettier": "^3.2.5"
   }
 }
