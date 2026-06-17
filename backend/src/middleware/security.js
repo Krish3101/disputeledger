@@ -1,18 +1,17 @@
-const helmet = require('helmet');
+import helmet from 'helmet';
 
 /**
- * Security middleware configuration
+ * Configures Helmet to set secure HTTP headers.
+ * Protects against XSS, clickjacking, and other cross-site injections.
  */
-const securityMiddleware = helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ['\'self\''],
-      scriptSrc: ['\'self\'', '\'unsafe-inline\''],
-      styleSrc: ['\'self\'', '\'unsafe-inline\''],
-      imgSrc: ['\'self\'', 'data:'],
-      connectSrc: ['\'self\'']
+export const securityMiddleware = helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:"],
+            connectSrc: ["'self'"]
+        }
     }
-  }
 });
-
-module.exports = securityMiddleware;

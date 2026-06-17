@@ -1,35 +1,5 @@
-# Dependencies
 node_modules/
-package-lock.json
-
-# Fabric wallet (contains credentials)
-app/wallet/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# Environment variables
+wallet/
 .env
-.env.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
 .DS_Store
-Thumbs.db
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Build artifacts
-dist/
-build/
+coverage/

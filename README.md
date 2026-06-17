@@ -1,12 +1,12 @@
-# Complaint Management System (Version 1)
+# Inter-Organizational Supply Chain Dispute Resolution (Version 2)
 
-This repository contains the foundational **Version 1** of a blockchain-based Complaint Management System. It was originally built as a project to demonstrate core Hyperledger Fabric concepts such as chaincode implementation, Certificate Authority (CA) user enrollment, and Role-Based Access Control (RBAC).
+This repository is a modern, enterprise-grade evolution of a Hyperledger Fabric application. It shifts the domain from a generic civic complaint box to a **B2B Supply Chain Consortium Network**, allowing multiple mutually distrusting organizations (Suppliers, Retailers, and Arbiters) to immutably track, manage, and adjudicate shipment and order disputes.
 
-## Architecture Overview
-The system implements a classic 3-tier architecture:
-1. **Frontend**: A vanilla HTML/JS Single Page Application (SPA).
-2. **Backend**: An Express.js REST API serving as middleware. It uses a **Custodial Wallet Pattern**, where the server securely holds the users' X.509 Fabric certificates and signs transactions on their behalf using the legacy `fabric-network` SDK.
-3. **Blockchain**: A Hyperledger Fabric `ComplaintContract` smart contract enforcing the core business logic.
+## V2 Modernization Highlights
+* **Modern Fabric Gateway SDK:** Upgraded from the deprecated legacy SDK to the modern `@hyperledger/fabric-gateway` gRPC client, shifting the endorsement gathering workload from the Express server back to the Fabric peers.
+* **Deterministic Chaincode:** Solved consensus errors by replacing native JavaScript timestamps (`Date.now()`) with Fabric's deterministic consensus timestamps (`ctx.stub.getTxTimestamp()`).
+* **Robust Security:** Implemented `helmet`, `express-rate-limit`, strict API input sanitization, and secure JWT identity mapping.
+* **UX & Ledger Optimization:** Replaced ugly Base64 X.509 strings with clean usernames on-chain (`hf.EnrollmentID`) and implemented ledger pagination for large dataset retrieval.
 
 ---
 
@@ -37,15 +37,15 @@ cd ~/fabric-samples/test-network
 ```
 
 ### 4. Deploy the Chaincode
-While still in the `test-network` directory, deploy the `complaint` smart contract from this repository to the blockchain. *(Replace `~/Workspace/cr/complaint-system-main` with your actual path if different).*
+While still in the `test-network` directory, deploy the `dispute` smart contract from this repository to the blockchain. *(Replace `~/Workspace/cr/v2-supply-chain-dispute-resolution` with your actual path if different).*
 ```bash
-./network.sh deployCC -ccn complaint -ccp ~/Workspace/cr/complaint-system-main/chaincode -ccl javascript
+./network.sh deployCC -ccn dispute -ccp ~/Workspace/cr/v2-supply-chain-dispute-resolution/chaincode -ccl javascript
 ```
 
 ### 5. Start the Node.js Backend
 Open a **new terminal tab** and navigate to the backend folder of this project:
 ```bash
-cd ~/Workspace/cr/complaint-system-main/backend
+cd ~/Workspace/cr/v2-supply-chain-dispute-resolution/backend
 npm install
 ```
 
@@ -53,7 +53,7 @@ Configure your environment variables:
 ```bash
 cp ../.env.example ../.env
 ```
-*(Open `.env` and ensure `CCP_PATH` points accurately to `~/fabric-samples/test-network/organizations/peerOrganizations/org1.example.com/connection-org1.json` if you installed Fabric somewhere else).*
+*(Open `.env` and ensure `FABRIC_NETWORK_BASE_DIR` points to your `fabric-samples/test-network` installation. Also note that the server runs on `PORT=3001` to avoid clashing with V1).*
 
 Start the server:
 ```bash
@@ -62,23 +62,24 @@ npm start
 
 ### 6. Access the Application
 Open your web browser to:
-**[http://localhost:3000](http://localhost:3000)**
+**[http://localhost:3001](http://localhost:3001)**
 
 ---
 
 ## API Overview
-Authentication is handled via JWT. Obtain a token by registering and logging in, then pass it as `Authorization: Bearer <token>`.
+Authentication is required for all dispute routes. A valid JWT must be passed in the `Authorization: Bearer <token>` header.
 
-* `POST /users/register` - Registers a user with the CA (requires `userId` and `role`).
-* `POST /users/login` - Returns a JWT for API access.
-* `POST /complaints` - Creates a new complaint.
-* `GET /complaints` - Fetches all complaints from the ledger.
-* `PATCH /complaints/:id/resolve` - Resolves a complaint (Authority only).
+| Method | Endpoint | Description | Role Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Register a new Fabric user | None |
+| `POST` | `/api/auth/login` | Authenticate and receive a JWT | None |
+| `GET` | `/api/disputes` | List all disputes (Paginated) | Any (`partner`/`arbiter`) |
+| `POST` | `/api/disputes` | Raise a new dispute | `partner` |
+| `PATCH`| `/api/disputes/:id/evidence`| Add evidence notes to a dispute | `partner` |
+| `PATCH`| `/api/disputes/:id/resolve` | Adjudicate and close a dispute | `arbiter` |
 
 ---
 
-## Historical Context & Limitations
-As Version 1, this project demonstrates initial architectural decisions and has known limitations that set the stage for V2:
-* **Legacy SDK:** Relies on the deprecated `fabric-network` SDK rather than the modern `@hyperledger/fabric-gateway`.
-* **State Parsing Risks:** Ledger retrieval (`GetAllComplaints`) pulls all records into memory at once without pagination.
-* **Basic Identity Management:** Uses a monolithic Express server to custody all keys, trading true blockchain non-repudiation for frontend UX simplicity.
+## Security & Architecture Details
+* **Ledger RBAC**: Security is defense-in-depth. The Express API ensures basic input validation, but the ultimate source of truth is enforced at the smart contract level using the invoker's X.509 certificate attributes, guaranteeing that the API cannot bypass the Arbiter-only resolution constraint.
+* **Custodial Wallet Pattern**: For this portfolio scope, having the Express server hold the certificates drastically improved the UX while maintaining ledger-level security. In a strict production environment, this would be swapped for an HSM or browser-based offline signing extension.
