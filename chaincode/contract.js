@@ -2,16 +2,8 @@ import { Contract } from 'fabric-contract-api';
 
 export class DisputeContract extends Contract {
 
-    /**
-     * Initializes the ledger (optional)
-     */
-    async InitLedger(ctx) {
-        console.info('Dispute Ledger Initialized');
-    }
+    
 
-    /**
-     * Raises a new supply chain dispute.
-     */
     async RaiseDispute(ctx, disputeId, orderReference, description) {
         this._assertPartner(ctx);
         this._validateString(disputeId, 100, 'Dispute ID');
@@ -23,9 +15,7 @@ export class DisputeContract extends Contract {
             throw new Error(`The dispute ${disputeId} already exists`);
         }
 
-        const clientId = ctx.clientIdentity.getAttributeValue('hf.EnrollmentID') || ctx.clientIdentity.getID();
-        const txTimestamp = ctx.stub.getTxTimestamp();
-        const timestampString = new Date(txTimestamp.seconds.low * 1000).toISOString();
+        const { clientId, timestampString } = this._getTxData(ctx);
         
         const dispute = {
             id: disputeId,
@@ -43,9 +33,6 @@ export class DisputeContract extends Contract {
         return JSON.stringify(dispute);
     }
 
-    /**
-     * Appends evidence to an existing dispute.
-     */
     async AddEvidence(ctx, disputeId, evidenceNotes) {
         this._assertPartner(ctx);
         this._validateString(evidenceNotes, 1000, 'Evidence Notes');
@@ -56,9 +43,7 @@ export class DisputeContract extends Contract {
             throw new Error('Cannot add evidence to a resolved dispute.');
         }
 
-        const clientId = ctx.clientIdentity.getAttributeValue('hf.EnrollmentID') || ctx.clientIdentity.getID();
-        const txTimestamp = ctx.stub.getTxTimestamp();
-        const timestampString = new Date(txTimestamp.seconds.low * 1000).toISOString();
+        const { clientId, timestampString } = this._getTxData(ctx);
 
         dispute.evidence.push({
             submittedBy: clientId,
@@ -70,9 +55,6 @@ export class DisputeContract extends Contract {
         return JSON.stringify(dispute);
     }
 
-    /**
-     * Adjudicates and resolves a dispute. Only users with the 'arbiter' role can call this.
-     */
     async AdjudicateDispute(ctx, disputeId, resolutionNote) {
         // Enforce RBAC: Only an arbiter can resolve a dispute
         this._assertArbiter(ctx);
@@ -84,9 +66,7 @@ export class DisputeContract extends Contract {
             throw new Error('Dispute is already resolved.');
         }
 
-        const clientId = ctx.clientIdentity.getAttributeValue('hf.EnrollmentID') || ctx.clientIdentity.getID();
-        const txTimestamp = ctx.stub.getTxTimestamp();
-        const timestampString = new Date(txTimestamp.seconds.low * 1000).toISOString();
+        const { clientId, timestampString } = this._getTxData(ctx);
         
         dispute.status = 'RESOLVED';
         dispute.resolutionNote = resolutionNote;
@@ -97,16 +77,6 @@ export class DisputeContract extends Contract {
         return JSON.stringify(dispute);
     }
 
-    /**
-     * Retrieves a single dispute by ID.
-     */
-    async ReadDispute(ctx, disputeId) {
-        return await this._readDispute(ctx, disputeId);
-    }
-
-    /**
-     * Retrieves all disputes (Note: In production, use pagination).
-     */
     async GetAllDisputes(ctx, pageSizeStr = '100', bookmark = '') {
         const pageSize = parseInt(pageSizeStr, 10);
         const { iterator, metadata } = await ctx.stub.getStateByRangeWithPagination('', '', pageSize, bookmark);
@@ -128,17 +98,11 @@ export class DisputeContract extends Contract {
         return JSON.stringify({ records: allResults, bookmark: metadata.fetchedRecordsCount === pageSize ? metadata.bookmark : '' });
     }
 
-    /**
-     * Helper to check existence
-     */
     async DisputeExists(ctx, disputeId) {
         const buffer = await ctx.stub.getState(disputeId);
         return (!!buffer && buffer.length > 0);
     }
 
-    /**
-     * Internal helper to read state and parse JSON
-     */
     async _readDispute(ctx, disputeId) {
         const buffer = await ctx.stub.getState(disputeId);
         if (!buffer || buffer.length === 0) {
@@ -147,10 +111,6 @@ export class DisputeContract extends Contract {
         return JSON.parse(buffer.toString());
     }
 
-    /**
-     * Enforces Role-Based Access Control (RBAC) for Arbiters.
-     * Throws an error if the invoker does not have the 'arbiter' role attribute.
-     */
     _assertArbiter(ctx) {
         const role = ctx.clientIdentity.getAttributeValue('role');
         if (role !== 'arbiter') {
@@ -158,9 +118,6 @@ export class DisputeContract extends Contract {
         }
     }
 
-    /**
-     * Enforces Role-Based Access Control (RBAC) for Partners.
-     */
     _assertPartner(ctx) {
         const role = ctx.clientIdentity.getAttributeValue('role');
         if (role !== 'partner') {
@@ -168,9 +125,6 @@ export class DisputeContract extends Contract {
         }
     }
 
-    /**
-     * Basic input validation logic executed on-chain.
-     */
     _validateString(str, maxLength, fieldName) {
         if (!str || typeof str !== 'string' || str.trim().length === 0) {
             throw new Error(`${fieldName} is required and cannot be empty`);
@@ -178,5 +132,12 @@ export class DisputeContract extends Contract {
         if (str.length > maxLength) {
             throw new Error(`${fieldName} must be less than ${maxLength} characters`);
         }
+    }
+
+    _getTxData(ctx) {
+        const clientId = ctx.clientIdentity.getAttributeValue('hf.EnrollmentID') || ctx.clientIdentity.getID();
+        const txTimestamp = ctx.stub.getTxTimestamp();
+        const timestampString = new Date(txTimestamp.seconds.low * 1000).toISOString();
+        return { clientId, timestampString };
     }
 }

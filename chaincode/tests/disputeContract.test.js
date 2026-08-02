@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { DisputeContract } from '../src/disputeContract.js';
+import { DisputeContract } from '../contract.js';
 
 describe('DisputeContract', () => {
     let contract;
@@ -17,7 +17,8 @@ describe('DisputeContract', () => {
             getStateByRangeWithPagination: jest.fn().mockResolvedValue({
                 iterator: { next: jest.fn().mockResolvedValue({ done: true }) },
                 metadata: { fetchedRecordsCount: 0, bookmark: '' }
-            })
+            }),
+            getTxTimestamp: jest.fn().mockReturnValue({ seconds: { low: 1620000000 } })
         };
         
         // Mock the client identity
@@ -92,6 +93,57 @@ describe('DisputeContract', () => {
             });
             await expect(contract.AdjudicateDispute(ctx, 'D-123', 'Resolution'))
                 .rejects.toThrow('Access denied: only identities with the "arbiter" role can adjudicate disputes.');
+        });
+    });
+
+    describe('AddEvidence', () => {
+        it('should successfully add evidence if caller is a partner', async () => {
+            const existingDispute = {
+                id: 'D-123',
+                status: 'PENDING',
+                evidence: []
+            };
+            stub.getState.mockResolvedValue(Buffer.from(JSON.stringify(existingDispute)));
+
+            const result = await contract.AddEvidence(ctx, 'D-123', 'Photos of damaged box');
+            const parsedResult = JSON.parse(result);
+
+            expect(parsedResult.evidence.length).toBe(1);
+            expect(parsedResult.evidence[0].notes).toEqual('Photos of damaged box');
+            expect(parsedResult.evidence[0].submittedBy).toEqual('supplier1');
+            expect(stub.putState).toHaveBeenCalled();
+        });
+
+        it('should throw if dispute is already resolved', async () => {
+            const existingDispute = {
+                id: 'D-123',
+                status: 'RESOLVED',
+                evidence: []
+            };
+            stub.getState.mockResolvedValue(Buffer.from(JSON.stringify(existingDispute)));
+            
+            await expect(contract.AddEvidence(ctx, 'D-123', 'More photos'))
+                .rejects.toThrow('Cannot add evidence to a resolved dispute.');
+        });
+    });
+
+    describe('GetAllDisputes', () => {
+        it('should return paginated dispute records', async () => {
+            stub.getStateByRangeWithPagination.mockResolvedValue({
+                iterator: { 
+                    next: jest.fn()
+                        .mockResolvedValueOnce({ done: false, value: { value: Buffer.from(JSON.stringify({ id: 'D-123' })) } })
+                        .mockResolvedValueOnce({ done: true })
+                },
+                metadata: { fetchedRecordsCount: 1, bookmark: 'bm1' }
+            });
+
+            const result = await contract.GetAllDisputes(ctx, '10', '');
+            const parsedResult = JSON.parse(result);
+
+            expect(parsedResult.records.length).toBe(1);
+            expect(parsedResult.records[0].id).toEqual('D-123');
+            expect(parsedResult.bookmark).toEqual(''); // Since fetched 1 != pageSize 10
         });
     });
 });

@@ -2,7 +2,7 @@
   "name": "dispute-contract",
   "version": "1.0.0",
   "description": "Supply Chain Dispute Resolution Chaincode",
-  "main": "src/index.js",
+  "main": "index.js",
   "type": "module",
   "engines": {
     "node": ">=18"
