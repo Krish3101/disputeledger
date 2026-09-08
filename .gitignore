@@ -24,13 +24,16 @@ pids
 *.seed
 *.pid.lock
 
-# Hyperledger Fabric Wallet & Certificates
+# Hyperledger Fabric Wallet & Artifacts
 wallet/
 **/wallet/
 **/.roles.json
 *.id
 *.pem
 *.block
+*.tar.gz
+fabric-samples/
+test-network/
 
 # Testing & Coverage
 coverage/

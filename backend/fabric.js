@@ -70,9 +70,8 @@ function verifyCcpExists() {
 
 async function newGrpcConnection(ccp) {
   const tlsCACerts = ccp.peers[Object.keys(ccp.peers)[0]].tlsCACerts;
-  const tlsRootCert = tlsCACerts.pem
-    ? Buffer.from(tlsCACerts.pem)
-    : fs.readFileSync(tlsCACerts.path);
+  const pem = Array.isArray(tlsCACerts.pem) ? tlsCACerts.pem[0] : tlsCACerts.pem;
+  const tlsRootCert = pem ? Buffer.from(pem) : fs.readFileSync(tlsCACerts.path);
   const tlsCredentials = grpc.credentials.createSsl(tlsRootCert);
   return new grpc.Client(PEER_ENDPOINT, tlsCredentials, {
     'grpc.ssl_target_name_override': PEER_HOST_ALIAS,
@@ -123,7 +122,10 @@ function getCAClient() {
   verifyCcpExists();
   const ccp = JSON.parse(fs.readFileSync(CCP_PATH, 'utf8'));
   const caInfo = ccp.certificateAuthorities[Object.keys(ccp.certificateAuthorities)[0]];
-  return new FabricCAServices(caInfo.url, { trustedRoots: caInfo.tlsCACerts.pem, verify: false });
+  const caPem = Array.isArray(caInfo.tlsCACerts.pem)
+    ? caInfo.tlsCACerts.pem[0]
+    : caInfo.tlsCACerts.pem;
+  return new FabricCAServices(caInfo.url, { trustedRoots: caPem, verify: false });
 }
 
 export async function enrollAdmin() {

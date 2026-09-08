@@ -31,13 +31,16 @@ app.use(
     },
   })
 );
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Too many requests' } }));
+app.use(
+  '/api',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Too many requests' } })
+);
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Utilities
-const validateId = (id, field = 'ID') => {
+export const validateId = (id, field = 'ID') => {
   if (!id || typeof id !== 'string')
     throw new Error(`VALIDATION: ${field} is required and must be a string`);
   const sanitized = id.trim();
@@ -50,7 +53,7 @@ const validateId = (id, field = 'ID') => {
   return sanitized;
 };
 
-const validateText = (text, field = 'Text', max = 1000) => {
+export const validateText = (text, field = 'Text', max = 1000) => {
   if (!text || typeof text !== 'string')
     throw new Error(`VALIDATION: ${field} is required and must be a string`);
   const sanitized = text.trim();
@@ -100,6 +103,15 @@ app.get(
   })
 );
 
+app.get(
+  '/api/disputes/:id',
+  asyncHandler(async (req, res) => {
+    const { contract } = await getContract(req.user);
+    const resultBytes = await contract.evaluateTransaction('GetDispute', validateId(req.params.id));
+    res.json(JSON.parse(new TextDecoder().decode(resultBytes)));
+  })
+);
+
 app.post(
   '/api/disputes',
   asyncHandler(async (req, res) => {
@@ -141,9 +153,10 @@ app.patch(
 );
 
 // Fallback & Errors
+app.all('/api/*', (req, res) => res.status(404).json({ error: 'API endpoint not found' }));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
-app.use((err, req, res, _next) => {
+export const errorHandler = (err, req, res, _next) => {
   const msg = err?.details?.[0]?.message || err?.cause?.message || err.message || '';
   if (msg.includes('ACCESS_DENIED:')) return res.status(403).json({ error: msg });
   if (msg.includes('CONFLICT:') || msg.includes('VALIDATION:'))
@@ -151,10 +164,28 @@ app.use((err, req, res, _next) => {
   if (msg.includes('NOT_FOUND:')) return res.status(404).json({ error: msg });
   if (msg.includes('administrator needs to be enrolled') || msg.includes('User not found'))
     return res.status(401).json({ error: msg });
-  if (msg.includes('Fabric connection profile not found'))
-    return res.status(503).json({ error: msg });
+  if (
+    msg.includes('Fabric connection profile not found') ||
+    msg.includes('UNAVAILABLE') ||
+    msg.includes('connect ECONNREFUSED') ||
+    msg.includes('failed to connect to all addresses') ||
+    err?.code === 14
+  ) {
+    return res
+      .status(503)
+      .json({ error: 'Ledger network is unavailable. Please check the connection.' });
+  }
+  if (msg.includes('DEADLINE_EXCEEDED') || err?.code === 4) {
+    return res.status(504).json({ error: 'Ledger operation timed out.' });
+  }
   console.error('System Error:', err);
   res.status(500).json({ error: 'An internal error occurred processing the request.' });
-});
+};
 
-app.listen(PORT, () => console.log(`Dispute Resolution API listening on port ${PORT}`));
+app.use(errorHandler);
+
+export { app };
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => console.log(`Dispute Resolution API listening on port ${PORT}`));
+}

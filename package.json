@@ -1,10 +1,10 @@
 {
-  "name": "complaint-system-main",
+  "name": "dispute-ledger",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm test --prefix chaincode",
+    "test": "npm test --prefix chaincode && npm test --prefix backend",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

@@ -3,8 +3,8 @@ import { Contract } from 'fabric-contract-api';
 export class DisputeContract extends Contract {
   async RaiseDispute(ctx, disputeId, orderReference, description) {
     this._assertPartner(ctx);
-    this._validateString(disputeId, 100, 'Dispute ID');
-    this._validateString(orderReference, 100, 'Order Reference');
+    this._validateId(disputeId, 'Dispute ID');
+    this._validateId(orderReference, 'Order Reference');
     this._validateString(description, 1000, 'Description');
 
     const exists = await this.DisputeExists(ctx, disputeId);
@@ -32,6 +32,7 @@ export class DisputeContract extends Contract {
 
   async AddEvidence(ctx, disputeId, evidenceNotes) {
     this._assertPartner(ctx);
+    this._validateId(disputeId, 'Dispute ID');
     this._validateString(evidenceNotes, 1000, 'Evidence Notes');
 
     const dispute = await this._readDispute(ctx, disputeId);
@@ -55,11 +56,12 @@ export class DisputeContract extends Contract {
   async AdjudicateDispute(ctx, disputeId, resolutionNote) {
     // Enforce RBAC: Only an arbiter can resolve a dispute
     this._assertArbiter(ctx);
+    this._validateId(disputeId, 'Dispute ID');
     this._validateString(resolutionNote, 1000, 'Resolution Note');
 
     const dispute = await this._readDispute(ctx, disputeId);
 
-    if (dispute.status === 'RESOLVED') {
+    if (dispute.status !== 'PENDING') {
       throw new Error('CONFLICT: Dispute is already resolved.');
     }
 
@@ -74,6 +76,12 @@ export class DisputeContract extends Contract {
     return JSON.stringify(dispute);
   }
 
+  async GetDispute(ctx, disputeId) {
+    this._validateId(disputeId, 'Dispute ID');
+    const dispute = await this._readDispute(ctx, disputeId);
+    return JSON.stringify(dispute);
+  }
+
   async GetAllDisputes(ctx, pageSizeStr = '100', bookmark = '') {
     const pageSize = parseInt(pageSizeStr, 10);
     const { iterator, metadata } = await ctx.stub.getStateByRangeWithPagination(
@@ -84,21 +92,28 @@ export class DisputeContract extends Contract {
     );
     const allResults = [];
 
-    let result = await iterator.next();
-    while (!result.done) {
-      const strValue = Buffer.from(result.value.value.toString()).toString('utf8');
-      let record;
-      try {
-        record = JSON.parse(strValue);
-      } catch (_err) {
-        record = strValue;
+    try {
+      let result = await iterator.next();
+      while (!result.done) {
+        const strValue = Buffer.from(result.value.value).toString('utf8');
+        let record;
+        try {
+          record = JSON.parse(strValue);
+        } catch (_err) {
+          record = strValue;
+        }
+        allResults.push(record);
+        result = await iterator.next();
       }
-      allResults.push(record);
-      result = await iterator.next();
+    } finally {
+      if (iterator && typeof iterator.close === 'function') {
+        await iterator.close();
+      }
     }
+
     return JSON.stringify({
       records: allResults,
-      bookmark: metadata.fetchedRecordsCount === pageSize ? metadata.bookmark : '',
+      bookmark: metadata?.fetchedRecordsCount === pageSize ? metadata.bookmark : '',
     });
   }
 
@@ -129,6 +144,15 @@ export class DisputeContract extends Contract {
     if (role !== 'partner') {
       throw new Error(
         'ACCESS_DENIED: only identities with the "partner" role can perform this action.'
+      );
+    }
+  }
+
+  _validateId(id, fieldName) {
+    this._validateString(id, 100, fieldName);
+    if (!/^[a-zA-Z0-9_-]+$/.test(id.trim())) {
+      throw new Error(
+        `VALIDATION: ${fieldName} can only contain alphanumeric characters, dashes, and underscores`
       );
     }
   }

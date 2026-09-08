@@ -10,66 +10,75 @@
     <div class="container">
       <h1>📦 Inter-Organizational Dispute Ledger</h1>
 
+      <div id="notification" class="notification hidden"></div>
+
       <div id="authPanel" class="auth-panel">
-        <input type="text" id="username" placeholder="Username (e.g., supplier1)" />
-        <input type="text" id="role" placeholder="Role (partner or arbiter)" value="partner" />
-        <button id="btnRegister">Register</button>
-        <button id="btnLogin">Login</button>
-        <span id="authError" class="error"></span>
+        <div class="auth-inputs">
+          <input type="text" id="username" placeholder="Username (e.g., supplier1)" />
+          <select id="role" title="Select role for registration">
+            <option value="partner">partner (Supply Chain Partner)</option>
+            <option value="arbiter">arbiter (Dispute Arbiter)</option>
+          </select>
+          <button id="btnRegister">Register</button>
+          <button id="btnLogin" class="btn-secondary">Login</button>
+        </div>
+        <small class="auth-hint"
+          >Note: Role selection is only required when registering a new identity.</small
+        >
+        <div id="authError" class="error"></div>
       </div>
 
       <div id="appPanel" class="hidden">
-        <div class="auth-panel" style="justify-content: space-between; background: #d4edda">
+        <div class="user-bar">
           <span id="loggedInUser"></span>
-          <button id="btnLogout">Logout</button>
+          <button id="btnLogout" class="btn-danger">Logout</button>
         </div>
 
-        <div style="display: flex; gap: 20px">
-          <div style="flex: 1">
+        <div class="dispute-grid">
+          <div id="raisePanel" class="panel-card">
             <h3>Raise New Dispute</h3>
-            <input
-              type="text"
-              id="dId"
-              placeholder="Dispute ID (e.g., D-101)"
-              style="width: 100%; margin-bottom: 10px"
-            /><br />
-            <input
-              type="text"
-              id="dRef"
-              placeholder="Order Ref (e.g., PO-5542)"
-              style="width: 100%; margin-bottom: 10px"
-            /><br />
-            <input
-              type="text"
+            <label for="dId">Dispute ID</label>
+            <input type="text" id="dId" placeholder="e.g., D-101" />
+            <label for="dRef">Order Reference</label>
+            <input type="text" id="dRef" placeholder="e.g., PO-5542" />
+            <label for="dDesc">Description</label>
+            <textarea
               id="dDesc"
-              placeholder="Description (e.g., 5 pallets missing)"
-              style="width: 100%; margin-bottom: 10px"
-            /><br />
-            <button id="btnRaise" style="width: 100%">Submit to Ledger</button>
+              rows="3"
+              placeholder="e.g., 5 pallets missing or damaged goods"
+            ></textarea>
+            <button id="btnRaise" class="btn-primary btn-block">Submit to Ledger</button>
           </div>
-          <div style="flex: 1">
-            <h3>Add Evidence / Adjudicate</h3>
-            <input
-              type="text"
-              id="actionId"
-              placeholder="Dispute ID"
-              style="width: 100%; margin-bottom: 10px"
-            /><br />
-            <input
-              type="text"
+
+          <div id="actionPanel" class="panel-card">
+            <h3 id="actionHeading">Add Evidence</h3>
+            <label for="actionId">Target Dispute ID</label>
+            <input type="text" id="actionId" placeholder="e.g., D-101" />
+            <label for="actionNotes" id="actionNotesLabel">Evidence Notes</label>
+            <textarea
               id="actionNotes"
-              placeholder="Evidence / Resolution Notes"
-              style="width: 100%; margin-bottom: 10px"
-            /><br />
-            <button id="btnEvidence" style="width: 48%">Add Evidence</button>
-            <button id="btnResolve" style="width: 48%; background: #28a745">
-              Adjudicate (Arbiter)
-            </button>
+              rows="3"
+              placeholder="Enter supporting notes or adjudication findings"
+            ></textarea>
+            <div class="action-btn-group">
+              <button id="btnEvidence" class="btn-primary btn-block">Add Evidence</button>
+              <button id="btnResolve" class="btn-success btn-block hidden">
+                Adjudicate Dispute (Arbiter)
+              </button>
+            </div>
           </div>
         </div>
-        <h3 style="margin-top: 30px">Active Ledger</h3>
-        <button id="btnRefresh">Refresh Ledger</button>
+
+        <div class="ledger-header">
+          <h3>Active Ledger</h3>
+          <button id="btnRefresh" class="btn-secondary">Refresh Ledger</button>
+        </div>
         <div id="ledger"></div>
+        <div id="paginationPanel" class="pagination-panel hidden">
+          <button id="btnPrevPage" class="btn-secondary" disabled>&larr; Previous</button>
+          <span id="pageInfo" class="page-info">Page 1</span>
+          <button id="btnNextPage" class="btn-secondary" disabled>Next &rarr;</button>
+        </div>
       </div>
     </div>
 
