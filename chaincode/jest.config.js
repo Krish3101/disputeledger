@@ -1,5 +1,5 @@
 export default {
-    testEnvironment: 'node',
-    transform: {},
-    verbose: true
+  testEnvironment: 'node',
+  transform: {},
+  verbose: true,
 };

@@ -1,0 +1,9 @@
+node_modules/
+backend/node_modules/
+chaincode/node_modules/
+wallet/
+backend/wallet/
+coverage/
+package-lock.json
+backend/package-lock.json
+chaincode/package-lock.json
