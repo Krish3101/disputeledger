@@ -1,70 +1,34 @@
 # Dependencies
 node_modules/
-**/node_modules/
+
+# SQLite databases
+dispute.db
+dispute.db-wal
+dispute.db-shm
+*.db
+*.db-wal
+*.db-shm
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test & coverage
+coverage/
+
+# Build & TS outputs
+dist/
+build/
+*.tsbuildinfo
 
 # Logs
-logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# Build and Bundler Output
-dist/
-build/
-out/
-*.tsbuildinfo
-.cache/
-.parcel-cache/
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Hyperledger Fabric Wallet & Artifacts
-wallet/
-**/wallet/
-**/.roles.json
-*.id
-*.pem
-*.block
-*.tar.gz
-fabric-samples/
-test-network/
-
-# Testing & Coverage
-coverage/
-.nyc_output/
-
-# Environment variables (do not commit secrets)
-.env
-.env.*
-*.env
-!.env.example
-
-# Operating System Files
+# OS and Editor files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-Desktop.ini
-
-# IDEs and Editors
 .vscode/
-!.vscode/extensions.json
 .idea/
-*.swp
-*.swo
-*.suo
-*~
-.project
-.classpath
-.settings/
-*.sublime-workspace
-*.sublime-project

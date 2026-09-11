@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dispute Ledger</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="app-header" class="hidden">
+      <div class="header-left">
+        <h1 class="logo" id="nav-home">Dispute Ledger</h1>
+      </div>
+      <div class="header-right">
+        <span id="user-info" class="user-badge"></span>
+        <button id="btn-check-integrity" class="btn btn-secondary">Check Ledger Integrity</button>
+        <button id="btn-logout" class="btn btn-outline">Log out</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Error & Notice Messages -->
+      <div id="alert-container" class="alert-container"></div>
+
+      <!-- Integrity Modal -->
+      <div id="integrity-modal" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Cryptographic Integrity Check</h3>
+            <button class="close-btn" id="btn-close-integrity">&times;</button>
+          </div>
+          <div class="modal-body" id="integrity-result">
+            <p>Verifying SHA-256 event hash chain...</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="btn-dismiss-integrity">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- View: Login -->
+      <section id="view-login" class="view">
+        <div class="card login-card">
+          <h2>Sign In to Dispute Ledger</h2>
+          <p class="subtitle">Shared, tamper-evident case files for commercial dispute resolution</p>
+
+          <form id="form-login">
+            <div class="form-group">
+              <label for="input-username">Username</label>
+              <input type="text" id="input-username" required placeholder="e.g. supplier, buyer, arbiter" autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label for="input-password">Password</label>
+              <input type="password" id="input-password" required placeholder="Password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Log In</button>
+          </form>
+
+          <div class="demo-logins">
+            <p class="demo-title">Quick demo login:</p>
+            <div class="demo-buttons">
+              <button class="btn btn-sm btn-outline quick-login" data-user="supplier">Supplier (Northwind)</button>
+              <button class="btn btn-sm btn-outline quick-login" data-user="buyer">Buyer (Acme)</button>
+              <button class="btn btn-sm btn-outline quick-login" data-user="carrier">Carrier (Pacific)</button>
+              <button class="btn btn-sm btn-outline quick-login" data-user="arbiter">Arbiter (Meridian)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View: Disputes List -->
+      <section id="view-list" class="view hidden">
+        <div class="view-header">
+          <div class="view-title">
+            <h2>Dispute Case Files</h2>
+            <p class="subtitle" id="list-subtitle">Disputes visible to your account</p>
+          </div>
+          <div class="view-actions">
+            <div class="filter-group">
+              <button class="filter-btn active" data-status="">All</button>
+              <button class="filter-btn" data-status="OPEN">Open</button>
+              <button class="filter-btn" data-status="RESOLVED">Resolved</button>
+            </div>
+            <button id="btn-open-raise-modal" class="btn btn-primary hidden">+ Raise Dispute</button>
+          </div>
+        </div>
+
+        <!-- Raise Dispute Modal -->
+        <div id="raise-modal" class="modal hidden">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Raise New Commercial Dispute</h3>
+              <button class="close-btn" id="btn-close-raise">&times;</button>
+            </div>
+            <form id="form-raise-dispute">
+              <div class="modal-body">
+                <div class="form-group">
+                  <label for="input-order-ref">Order Reference</label>
+                  <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="^[A-Za-z0-9_\-/.]+$" maxlength="100">
+                  <small>Alphanumeric, underscores, hyphens, slashes, periods (up to 100 characters)</small>
+                </div>
+                <div class="form-group">
+                  <label for="select-respondent">Respondent Partner</label>
+                  <select id="select-respondent" required>
+                    <option value="">Select respondent...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="input-description">Dispute Description</label>
+                  <textarea id="input-description" required rows="4" maxlength="2000" placeholder="Detail the commercial dispute, damaged goods, or shortage..."></textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="btn-cancel-raise">Cancel</button>
+                <button type="submit" class="btn btn-primary">Raise Dispute</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="disputes-list" class="disputes-grid"></div>
+      </section>
+
+      <!-- View: Dispute Detail -->
+      <section id="view-detail" class="view hidden">
+        <div class="view-header">
+          <button id="btn-back-to-list" class="btn btn-sm btn-outline">&larr; Back to Disputes</button>
+        </div>
+
+        <div id="dispute-detail-content"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

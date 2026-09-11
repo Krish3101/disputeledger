@@ -1,126 +1,107 @@
-# Supply Chain Dispute Ledger
+# Dispute Ledger
 
-A shared, append-only dispute resolution system on Hyperledger Fabric. Supply chain partners raise disputes and add evidence; arbiters review and resolve them. All actions are attributed, timestamped, and preserved on an immutable ledger with role-based access enforced on-chain.
+A web app for tracking commercial disputes — damaged cargo, short shipments — between
+supply chain partners, where the record of what happened can't be quietly altered.
 
-## Architecture
+Every change appends an event to a SHA-256 hash chain, with each event's hash covering the
+one before it. Editing a row directly in SQLite breaks the chain, and the integrity check
+reports which event was tampered with.
 
-```
-frontend/  (Vanilla HTML/JS/CSS, served by Express)
-    │  HTTP/JSON + Bearer JWT
-    ▼
-backend/   (Express REST API → Fabric Gateway over gRPC)
-    │  gRPC over TLS
-    ▼
-chaincode/ (Fabric smart contract — all RBAC + lifecycle rules)
-```
+## What the chain proves, and what it doesn't
 
-- **Chaincode** (`chaincode/contract.js`): Disputes keyed by ID in ledger state. RBAC enforced via X.509 certificate `role` attribute. Lifecycle: `PENDING → RESOLVED`. Paginated range queries.
-- **Backend** (`backend/server.js`, `backend/fabric.js`): Express routes, JWT session auth, Fabric CA enrollment, input validation, error mapping (chaincode prefixes → HTTP status codes). Two Fabric SDKs coexist: `fabric-network` for wallet/CA, `@hyperledger/fabric-gateway` for transactions.
-- **Frontend** (`frontend/`): Vanilla JS, XSS-safe DOM rendering (`textContent`), CSP-compliant event listeners, role-gated UI, paginated dispute listing.
+Worth being clear about this up front, because it is easy to oversell.
 
-## Prerequisites
+It shows the ledger has not been edited after the fact. Each event's hash covers the
+previous event's hash, so changing anything in the middle invalidates every event after it,
+and recomputing the chain finds exactly where.
 
-- Docker Desktop (4GB+ memory)
-- Node.js ≥ 18 & npm
-- Hyperledger Fabric test network with CAs
+It does not make anyone honest. The app writes the chain itself, so whoever can run the app
+can append whatever they like at the time. This catches tampering with history; it does
+nothing about a lie recorded truthfully.
 
-## Setup
+There is no blockchain here and no distributed consensus — it is one SQLite file with a
+verifiable append-only log over it.
 
-### 1. Start Fabric Network
+## Catching a tamper
+
+With the server running, edit the database underneath it:
 
 ```bash
-cd fabric-samples/test-network
-./network.sh down
-./network.sh up createChannel -c mychannel -ca
+sqlite3 dispute.db "UPDATE evidence SET notes='never happened' WHERE id=(SELECT id FROM evidence LIMIT 1);"
 ```
 
-### 2. Deploy Chaincode
+Then click **Check Ledger Integrity**. It recomputes the chain and names the event that no
+longer matches.
+
+Each state change writes its event inside the same SQLite transaction as the change itself,
+so the ledger can't drift from the data it describes.
+
+## The four roles
+
+Seeded accounts, password `password123` for all of them:
+
+| user | role | acting as |
+|---|---|---|
+| `supplier` | partner | Sam Ortiz, Northwind Supply |
+| `buyer` | partner | Dana Reyes, Acme Retail |
+| `carrier` | partner | Chris Vance, Pacific Freight |
+| `arbiter` | arbiter | Ari Lund, Meridian Arbitration |
+
+Log in as `supplier`, raise a dispute against Dana Reyes, and add an evidence note. Log in
+as `buyer` and add counter-evidence. Log in as `carrier` — the dispute isn't in the list,
+and opening its URL gives a 404 rather than a 403, so an uninvolved partner can't even
+confirm it exists. Log in as `arbiter` and record a ruling; the dispute moves to `RESOLVED`
+and stops accepting evidence.
+
+A dispute goes `OPEN` once and `RESOLVED` once. Only an arbiter can close it, and nothing
+can be added afterwards.
+
+Passwords use `scrypt` from `node:crypto` and are compared with `timingSafeEqual`, so a
+wrong password and an unknown username take the same time to reject.
+
+## Running it
+
+Needs Node.js 20 or newer.
 
 ```bash
-# From fabric-samples/test-network:
-./network.sh deployCC -ccn dispute -ccp "/path/to/dispute-ledger/chaincode" -ccl javascript
+./scripts/start.sh
 ```
 
-### 3. Configure & Install
+That installs dependencies if needed, seeds the database, and starts the server at
+http://localhost:3000. To do it by hand:
 
 ```bash
-# From project root:
-cp .env.example .env          # Edit FABRIC_NETWORK_BASE_DIR and JWT_SECRET
-npm install                    # Root: lint/format tooling
-npm install --prefix backend
-npm install --prefix chaincode
+npm install
+npm run seed     # 4 users, 2 disputes
+npm run dev
+npm test
 ```
 
-### 4. Run
+`npm run reset` wipes and reseeds.
 
-```bash
-cd backend && npm start        # http://localhost:3000
-# or: npm run dev              # auto-reload
+TypeScript runs directly through `tsx` with no build step, and the frontend is plain HTML,
+CSS and ES modules, so there's no bundler either.
+
+```
+src/
+  domain.ts     dispute rules and error types, no I/O
+  audit.ts      hash chain and integrity verification
+  auth.ts       scrypt hashing, session tokens
+  db.ts         SQLite schema and indices
+  disputes.ts   queries and dispute operations
+  routes.ts     endpoints and Zod validation
+  app.ts        builds the Express app (exported so tests can drive it)
+  main.ts       starts the server, handles shutdown
+public/         single-page frontend
+tests/          domain rules and API tests
 ```
 
-### 5. Test
+## Still missing
 
-```bash
-npm test                       # Runs chaincode (Jest) + backend (node:test) suites
-npm run lint                   # ESLint
-npm run format:check           # Prettier
-```
+Evidence is text notes only. The walkthrough talks about photos of water ingress, but
+there's no file upload — you describe the photo rather than attach it, which is the main
+thing I'd add next.
 
-## Environment Variables
+## License
 
-| Variable                  | Default                        | Description                           |
-| :------------------------ | :----------------------------- | :------------------------------------ |
-| `PORT`                    | `3000`                         | Express server port                   |
-| `FABRIC_NETWORK_BASE_DIR` | auto-detected                  | Path to `fabric-samples/test-network` |
-| `CHANNEL_NAME`            | `mychannel`                    | Fabric channel                        |
-| `CHAINCODE_NAME`          | `dispute`                      | Deployed chaincode name               |
-| `MSP_ID`                  | `Org1MSP`                      | Membership service provider           |
-| `PEER_ENDPOINT`           | `localhost:7051`               | gRPC peer address                     |
-| `JWT_SECRET`              | dev default (warns at startup) | JWT signing secret                    |
-
-See [`.env.example`](.env.example) for the full list.
-
-## API Reference
-
-All `/api/disputes*` endpoints require `Authorization: Bearer <token>`.
-
-### Auth
-
-| Method | Path                 | Body                 | Response                    |
-| :----- | :------------------- | :------------------- | :-------------------------- |
-| POST   | `/api/auth/register` | `{ username, role }` | `{ message }`               |
-| POST   | `/api/auth/login`    | `{ username }`       | `{ token, username, role }` |
-
-`role` must be `"partner"` or `"arbiter"`.
-
-### Disputes
-
-| Method | Path                         | Body / Query                                 | Description                    |
-| :----- | :--------------------------- | :------------------------------------------- | :----------------------------- |
-| GET    | `/api/disputes`              | `?pageSize=10&bookmark=...`                  | List disputes (paginated)      |
-| GET    | `/api/disputes/:id`          | —                                            | View single dispute            |
-| POST   | `/api/disputes`              | `{ disputeId, orderReference, description }` | Raise dispute (partner only)   |
-| PATCH  | `/api/disputes/:id/evidence` | `{ notes }`                                  | Add evidence (partner only)    |
-| PATCH  | `/api/disputes/:id/resolve`  | `{ resolutionNote }`                         | Resolve dispute (arbiter only) |
-
-### Error Prefixes
-
-Chaincode errors map to HTTP status codes:
-
-| Prefix          | HTTP Status |
-| :-------------- | :---------- |
-| `ACCESS_DENIED` | 403         |
-| `CONFLICT`      | 400         |
-| `VALIDATION`    | 400         |
-| `NOT_FOUND`     | 404         |
-| Network failure | 503 / 504   |
-
-## Quick Walkthrough
-
-1. Register `supplier1` as `partner` → Login
-2. Raise dispute `D-101` against order `PO-8834`
-3. Add evidence notes
-4. Logout → Register `arbiter1` as `arbiter` → Login
-5. Adjudicate dispute `D-101` → Status becomes `RESOLVED`
-
-All actions are recorded with actor identity and timestamp on the immutable ledger.
+[MIT](LICENSE)
