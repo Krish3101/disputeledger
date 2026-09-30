@@ -3,8 +3,8 @@
 A web app for tracking commercial disputes — damaged cargo, short shipments — between
 supply chain partners, where the record of what happened can't be quietly altered.
 
-Every change appends an event to a SHA-256 hash chain, with each event's hash covering the
-one before it. Editing a row directly in SQLite breaks the chain, and the integrity check
+Every change appends an event to an HMAC-SHA256 hash chain, with each event's hash covering
+the one before it. Editing a row directly in SQLite breaks the chain, and the integrity check
 reports which event was tampered with.
 
 ## What the chain proves, and what it doesn't
@@ -15,10 +15,11 @@ It shows a row hasn't been edited directly in the database. Each event's hash co
 previous event's hash, so changing anything in the middle invalidates every event after it,
 and recomputing the chain finds exactly where.
 
-It doesn't stop someone who rewrites the whole chain. The hashes use no secret key, so
-anyone with write access to the database file can edit a row, recompute every hash after
-it, and the check passes again. Keying the hashes (HMAC) with a secret kept outside the
-database would close that gap.
+The hashes are keyed with `LEDGER_KEY`, which lives in `.env` and not in the database. Without
+it, someone who edits a row can't recompute a chain that passes, even if they rehash every
+event after the edit. Plain SHA-256 wouldn't stop that, which is why the key is there. It only
+helps while the key stays secret: whoever has both the database and `.env` can still rewrite
+history.
 
 It does not make anyone honest. The app writes the chain itself, so whoever can run the app
 can append whatever they like at the time. This catches tampering with history; it does
@@ -72,12 +73,13 @@ Needs Node.js 20 or newer.
 ./scripts/start.sh
 ```
 
-That installs dependencies if needed, seeds the database, and starts the server at
-http://localhost:3000. To do it by hand:
+That generates a `LEDGER_KEY` into `.env` the first time, installs dependencies if needed,
+seeds the database, and starts the server at http://localhost:3000. To do it by hand:
 
 ```bash
 npm install
-npm run seed     # 4 users, 2 disputes
+cp .env.example .env    # then set LEDGER_KEY to any long random string
+npm run seed            # 4 users, 2 disputes
 npm run dev
 npm test
 ```

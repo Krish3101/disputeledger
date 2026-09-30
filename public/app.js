@@ -362,7 +362,7 @@ function renderDisputeDetail(dispute, events) {
 
     <div class="audit-section">
       <div class="section-title">
-        Cryptographic Audit Log (SHA-256 Hash Chain)
+        Cryptographic Audit Log (HMAC-SHA256 Hash Chain)
       </div>
       <p class="subtitle" style="margin-bottom: 0.5rem;">Append-only ledger events linked to this dispute case file</p>
       ${eventsTableHtml}
@@ -439,7 +439,7 @@ function closeRaiseModal() {
 }
 
 async function runIntegrityCheck() {
-  integrityResult.innerHTML = '<p>Computing SHA-256 hashes and validating state against event log...</p>';
+  integrityResult.innerHTML = '<p>Recomputing HMAC-SHA256 hashes and validating state against event log...</p>';
   integrityModal.classList.remove('hidden');
 
   try {
@@ -448,7 +448,7 @@ async function runIntegrityCheck() {
       integrityResult.innerHTML = `
         <div class="alert alert-success" style="margin: 0;">
           <h4>Ledger Integrity Verified</h4>
-          <p style="margin-top: 0.5rem;">All <strong>${res.eventsChecked}</strong> events in the hash chain match their SHA-256 digests and perfectly reflect current dispute and evidence states.</p>
+          <p style="margin-top: 0.5rem;">All <strong>${res.eventsChecked}</strong> events in the hash chain match their HMAC-SHA256 digests and perfectly reflect current dispute and evidence states.</p>
         </div>
       `;
     } else {

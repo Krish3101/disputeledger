@@ -1,5 +1,9 @@
 import { createDb } from './db.js';
 import { createApp } from './app.js';
+import { ledgerKey } from './audit.js';
+
+// Fail at startup rather than on the first write.
+ledgerKey();
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const dbPath = process.env.DB_PATH || './dispute.db';

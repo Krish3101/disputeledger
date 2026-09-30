@@ -4,9 +4,9 @@
   "description": "Tamper-evident dispute case file ledger",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts",
-    "seed": "tsx src/seed.ts",
+    "dev": "tsx watch --env-file=.env src/main.ts",
+    "start": "tsx --env-file=.env src/main.ts",
+    "seed": "tsx --env-file=.env src/seed.ts",
     "reset": "bash scripts/reset.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

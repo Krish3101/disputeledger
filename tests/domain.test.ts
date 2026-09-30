@@ -1,3 +1,4 @@
+import { createHash, createHmac } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import {
   canAddEvidence,
@@ -13,7 +14,6 @@ import {
 import {
   buildCanonicalEventString,
   computeEventHash,
-  computeSha256,
   verifyChain,
   GENESIS_PREV_HASH,
 } from '../src/audit.js';
@@ -91,7 +91,9 @@ describe('Domain Rules (Pure Functions)', () => {
       );
 
       const hash = computeEventHash(GENESIS_PREV_HASH, event1);
-      const expectedDigest = computeSha256(GENESIS_PREV_HASH + '\n' + canonical);
+      const expectedDigest = createHmac('sha256', 'test-key')
+        .update(GENESIS_PREV_HASH + '\n' + canonical)
+        .digest('hex');
       expect(hash).toBe(expectedDigest);
     });
 
@@ -145,6 +147,24 @@ describe('Domain Rules (Pure Functions)', () => {
       const chain = createValidChain();
       // Mutate payload of event 2
       chain[1].payload = { evidenceId: 'ev-1', notes: 'tampered notes' };
+      const res = verifyChain(chain);
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.firstBadEventId).toBe(2);
+      }
+    });
+
+    it('catches an edit when the chain is recomputed without the key', () => {
+      const chain = createValidChain();
+      chain[1].payload = { evidenceId: 'ev-1', notes: 'tampered notes' };
+
+      // What someone with only database access can do: rehash every event after the edit.
+      for (let i = 1; i < chain.length; i++) {
+        chain[i].prevHash = chain[i - 1].hash;
+        const canonical = buildCanonicalEventString(chain[i]);
+        chain[i].hash = createHash('sha256').update(chain[i].prevHash + '\n' + canonical).digest('hex');
+      }
+
       const res = verifyChain(chain);
       expect(res.ok).toBe(false);
       if (!res.ok) {

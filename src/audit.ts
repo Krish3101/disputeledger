@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
 
 export const GENESIS_PREV_HASH = '0'.repeat(64);
@@ -78,13 +78,19 @@ export function buildCanonicalEventString(event: EventInput): string {
   });
 }
 
-export function computeSha256(content: string): string {
-  return createHash('sha256').update(content).digest('hex');
+// The key lives outside the database, so someone who can edit the database file
+// still can't recompute a valid chain after changing a row.
+export function ledgerKey(): string {
+  const key = process.env.LEDGER_KEY;
+  if (!key) {
+    throw new Error('LEDGER_KEY is not set. Run ./scripts/start.sh once, or add it to .env.');
+  }
+  return key;
 }
 
 export function computeEventHash(prevHash: string, event: EventInput): string {
   const canonical = buildCanonicalEventString(event);
-  return computeSha256(prevHash + '\n' + canonical);
+  return createHmac('sha256', ledgerKey()).update(prevHash + '\n' + canonical).digest('hex');
 }
 
 export type VerifyChainResult =
