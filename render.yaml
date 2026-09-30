@@ -4,6 +4,7 @@ services:
     name: disputeledger
     runtime: node
     plan: free
+    region: singapore
     buildCommand: npm ci --include=dev
     # The free plan wipes the disk on every restart, so the demo reseeds each time it starts.
     startCommand: npx tsx src/seed.ts && npx tsx src/main.ts
