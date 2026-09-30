@@ -17,6 +17,10 @@ It shows a row hasn't been edited directly in the database. Each event's hash co
 previous event's hash, so changing anything in the middle invalidates every event after it,
 and recomputing the chain finds exactly where.
 
+It can't see the end being cut off. Delete the newest event together with the row it
+describes, and what's left is still a valid chain. Catching that needs the latest hash kept
+somewhere outside the database, which this doesn't do.
+
 The hashes are keyed with `LEDGER_KEY`, which lives in `.env` and not in the database. Without
 it, someone who edits a row can't recompute a chain that passes, even if they rehash every
 event after the edit. Plain SHA-256 wouldn't stop that, which is why the key is there. It only

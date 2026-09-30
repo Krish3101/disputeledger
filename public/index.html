@@ -28,11 +28,11 @@
       <div id="integrity-modal" class="modal hidden">
         <div class="modal-content">
           <div class="modal-header">
-            <h3>Cryptographic Integrity Check</h3>
+            <h3>Ledger check</h3>
             <button class="close-btn" id="btn-close-integrity">&times;</button>
           </div>
           <div class="modal-body" id="integrity-result">
-            <p>Verifying HMAC-SHA256 event hash chain...</p>
+            <p>Checking the ledger...</p>
           </div>
           <div class="modal-footer">
             <button class="btn btn-secondary" id="btn-dismiss-integrity">Close</button>
@@ -43,8 +43,8 @@
       <!-- View: Login -->
       <section id="view-login" class="view">
         <div class="card login-card">
-          <h2>Sign In to Dispute Ledger</h2>
-          <p class="subtitle">Shared, tamper-evident case files for commercial dispute resolution</p>
+          <h2>Sign in</h2>
+          <p class="subtitle">Shared case files for supply chain disputes, with a history nobody can quietly edit.</p>
 
           <form id="form-login">
             <div class="form-group">
@@ -59,7 +59,7 @@
           </form>
 
           <div class="demo-logins">
-            <p class="demo-title">Quick demo login:</p>
+            <p class="demo-title">Demo accounts:</p>
             <div class="demo-buttons">
               <button class="btn btn-sm btn-outline quick-login" data-user="supplier">Supplier (Northwind)</button>
               <button class="btn btn-sm btn-outline quick-login" data-user="buyer">Buyer (Acme)</button>
@@ -74,7 +74,7 @@
       <section id="view-list" class="view hidden">
         <div class="view-header">
           <div class="view-title">
-            <h2>Dispute Case Files</h2>
+            <h2>Disputes</h2>
             <p class="subtitle" id="list-subtitle">Disputes visible to your account</p>
           </div>
           <div class="view-actions">
@@ -91,7 +91,7 @@
         <div id="raise-modal" class="modal hidden">
           <div class="modal-content">
             <div class="modal-header">
-              <h3>Raise New Commercial Dispute</h3>
+              <h3>Raise a dispute</h3>
               <button class="close-btn" id="btn-close-raise">&times;</button>
             </div>
             <form id="form-raise-dispute">
@@ -99,17 +99,17 @@
                 <div class="form-group">
                   <label for="input-order-ref">Order Reference</label>
                   <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="[A-Za-z0-9_.\/\-]+" maxlength="100">
-                  <small>Alphanumeric, underscores, hyphens, slashes, periods (up to 100 characters)</small>
+                  <small>Letters, numbers and - _ / . only</small>
                 </div>
                 <div class="form-group">
-                  <label for="select-respondent">Respondent Partner</label>
+                  <label for="select-respondent">Respondent</label>
                   <select id="select-respondent" required>
                     <option value="">Select respondent...</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="input-description">Dispute Description</label>
-                  <textarea id="input-description" required rows="4" maxlength="2000" placeholder="Detail the commercial dispute, damaged goods, or shortage..."></textarea>
+                  <label for="input-description">What happened</label>
+                  <textarea id="input-description" required rows="4" maxlength="2000" placeholder="e.g. 5 of 40 pallets arrived water-damaged"></textarea>
                 </div>
               </div>
               <div class="modal-footer">

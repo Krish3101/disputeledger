@@ -58,7 +58,7 @@ async function api(path, options = {}) {
   if (!response.ok) {
     if (response.status === 401 && authToken && path !== '/login') {
       logout();
-      showAlert('Session expired. Please log in again.', 'danger');
+      showAlert('Your session ended. Please log in again.', 'danger');
     }
     const errorMsg = data?.error?.message || `Request failed with status ${response.status}`;
     const err = new Error(errorMsg);
@@ -256,11 +256,11 @@ function renderDisputeDetail(dispute, events) {
   if (!isResolved && isParty) {
     addEvidenceFormHtml = `
       <div class="card" style="margin-top: 1rem;">
-        <h4>Append Evidence Note</h4>
-        <p class="subtitle" style="margin-bottom: 0.75rem;">Evidence is permanently written to the case file and hash chain.</p>
+        <h4>Add evidence</h4>
+        <p class="subtitle" style="margin-bottom: 0.75rem;">Evidence can't be edited or removed once it's added.</p>
         <form id="form-add-evidence">
           <div class="form-group">
-            <textarea id="input-evidence-notes" required rows="3" placeholder="Enter photos, inspection reports, or delivery details..."></textarea>
+            <textarea id="input-evidence-notes" required rows="3" placeholder="Describe the photo, inspection report or delivery note"></textarea>
           </div>
           <button type="submit" class="btn btn-primary btn-sm">Add Evidence</button>
         </form>
@@ -272,7 +272,7 @@ function renderDisputeDetail(dispute, events) {
   if (isResolved && dispute.resolution) {
     resolutionHtml = `
       <div class="resolution-card">
-        <h4>Official Arbiter Resolution</h4>
+        <h4>Ruling</h4>
         <p>${escapeHtml(dispute.resolution.note)}</p>
         <div class="resolution-meta">
           Ruling by <strong>${escapeHtml(dispute.resolution.by.displayName)}</strong> on ${formatDate(dispute.resolution.at)}
@@ -282,19 +282,20 @@ function renderDisputeDetail(dispute, events) {
   } else if (!isResolved && isArbiter) {
     resolutionHtml = `
       <div class="card" style="border-left: 3px solid var(--success); margin-bottom: 1.5rem;">
-        <h4>Record Arbiter Ruling</h4>
-        <p class="subtitle" style="margin-bottom: 0.75rem;">Resolving the dispute is terminal: no further evidence will be accepted.</p>
+        <h4>Record a ruling</h4>
+        <p class="subtitle" style="margin-bottom: 0.75rem;">This closes the dispute. No more evidence can be added after it.</p>
         <form id="form-resolve-dispute">
           <div class="form-group">
-            <textarea id="input-resolution-note" required rows="3" placeholder="Enter finding of liability and settlement ruling..."></textarea>
+            <textarea id="input-resolution-note" required rows="3" placeholder="Who is liable, and what was agreed"></textarea>
           </div>
-          <button type="submit" class="btn btn-primary" style="background-color: var(--success);">Record Ruling & Resolve</button>
+          <button type="submit" class="btn btn-primary" style="background-color: var(--success);">Record ruling</button>
         </form>
       </div>
     `;
   }
 
   const eventsTableHtml = `
+    <div class="table-scroll">
     <table class="events-table">
       <thead>
         <tr>
@@ -323,6 +324,7 @@ function renderDisputeDetail(dispute, events) {
           .join('')}
       </tbody>
     </table>
+    </div>
   `;
 
   disputeDetailContent.innerHTML = `
@@ -344,7 +346,7 @@ function renderDisputeDetail(dispute, events) {
       </div>
 
       <div class="claim-desc">
-        <strong>Dispute Description:</strong>
+        <strong>What happened</strong>
         <p style="margin-top: 0.35rem;">${escapeHtml(dispute.description)}</p>
       </div>
     </div>
@@ -352,7 +354,7 @@ function renderDisputeDetail(dispute, events) {
     ${resolutionHtml}
 
     <div class="section-title">
-      Case Evidence File
+      Evidence
     </div>
     <div class="evidence-list">
       ${evidenceListHtml}
@@ -362,9 +364,9 @@ function renderDisputeDetail(dispute, events) {
 
     <div class="audit-section">
       <div class="section-title">
-        Cryptographic Audit Log (HMAC-SHA256 Hash Chain)
+        Ledger events
       </div>
-      <p class="subtitle" style="margin-bottom: 0.5rem;">Append-only ledger events linked to this dispute case file</p>
+      <p class="subtitle" style="margin-bottom: 0.5rem;">Each event's hash covers the one before it. There is one chain for every dispute, so a Prev Hash can belong to an event from another case.</p>
       ${eventsTableHtml}
     </div>
   `;
@@ -382,7 +384,7 @@ function renderDisputeDetail(dispute, events) {
           method: 'POST',
           body: JSON.stringify({ notes }),
         });
-        showAlert('Evidence appended successfully.', 'success');
+        showAlert('Evidence added.', 'success');
         showDisputeDetailView(dispute.id);
       } catch (err) {
         showAlert(err.message, 'danger');
@@ -404,7 +406,7 @@ function renderDisputeDetail(dispute, events) {
           method: 'POST',
           body: JSON.stringify({ resolutionNote }),
         });
-        showAlert('Dispute resolved successfully.', 'success');
+        showAlert('Ruling recorded.', 'success');
         showDisputeDetailView(dispute.id);
       } catch (err) {
         showAlert(err.message, 'danger');
@@ -439,7 +441,7 @@ function closeRaiseModal() {
 }
 
 async function runIntegrityCheck() {
-  integrityResult.innerHTML = '<p>Recomputing HMAC-SHA256 hashes and validating state against event log...</p>';
+  integrityResult.innerHTML = '<p>Checking the ledger...</p>';
   integrityModal.classList.remove('hidden');
 
   try {
@@ -447,17 +449,17 @@ async function runIntegrityCheck() {
     if (res.ok) {
       integrityResult.innerHTML = `
         <div class="alert alert-success" style="margin: 0;">
-          <h4>Ledger Integrity Verified</h4>
-          <p style="margin-top: 0.5rem;">All <strong>${res.eventsChecked}</strong> events in the hash chain match their HMAC-SHA256 digests and perfectly reflect current dispute and evidence states.</p>
+          <h4>The ledger checks out</h4>
+          <p style="margin-top: 0.5rem;">All <strong>${res.eventsChecked}</strong> events match their hashes, and every dispute, evidence note and ruling matches its event.</p>
         </div>
       `;
     } else {
       const where = res.firstBadEventId === null
         ? 'A dispute, evidence note or ruling was written to the database without a ledger event.'
-        : `Tampering detected at <strong>Event #${res.firstBadEventId}</strong>! The stored record or hash chain does not match original cryptographic state.`;
+        : `<strong>Event #${res.firstBadEventId}</strong>, or the row it describes, was changed after it was written.`;
       integrityResult.innerHTML = `
         <div class="alert alert-danger" style="margin: 0;">
-          <h4>INTEGRITY VIOLATION DETECTED</h4>
+          <h4>The ledger doesn't match</h4>
           <p style="margin-top: 0.5rem;">${where}</p>
         </div>
       `;
@@ -525,7 +527,7 @@ function setupEventListeners() {
         body: JSON.stringify({ orderReference, respondentId, description }),
       });
       closeRaiseModal();
-      showAlert('Dispute successfully raised.', 'success');
+      showAlert('Dispute raised.', 'success');
       showDisputeDetailView(created.id);
     } catch (err) {
       showAlert(err.message, 'danger');
