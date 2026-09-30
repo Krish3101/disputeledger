@@ -107,6 +107,12 @@ public/         single-page frontend
 tests/          domain rules and API tests
 ```
 
+## Deploying
+
+`render.yaml` runs it on Render's free plan: New → Blueprint → this repo. Render generates
+`LEDGER_KEY`, and because the free plan wipes the disk on every restart, the demo reseeds
+itself each time it starts.
+
 ## Still missing
 
 Evidence is text notes only. The walkthrough talks about photos of water ingress, but
