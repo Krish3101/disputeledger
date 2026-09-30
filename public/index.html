@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dispute Ledger</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230369a1'/%3E%3Ctext x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ED%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="app-header" class="hidden">
+      <div class="header-left">
+        <h1 class="logo"><button type="button" id="nav-home" class="logo-btn">Dispute Ledger</button></h1>
+      </div>
+      <div class="header-right">
+        <span id="user-info" class="user-badge"></span>
+        <button id="btn-verify" class="btn btn-secondary hidden">Verify ledger</button>
+        <button id="btn-logout" class="btn btn-outline">Log out</button>
+      </div>
+    </header>
+
+    <!-- Result of the last ledger check; stays until the next check -->
+    <section id="verify-banner" class="verify-banner hidden" aria-label="Ledger check"></section>
+
+    <main class="container">
+      <div id="alert-container" class="alert-container" role="status" aria-live="polite"></div>
+
+      <section id="view-login" class="view">
+        <div class="card login-card">
+          <h1>Dispute Ledger</h1>
+          <p class="subtitle">Shared case files for supply chain disputes, with a tamper-evident audit log that names the first record changed behind its back.</p>
+          <h2>Sign in</h2>
+
+          <form id="form-login">
+            <div class="form-group">
+              <label for="input-username">Username</label>
+              <input type="text" id="input-username" required placeholder="e.g. supplier, buyer, arbiter" autocomplete="username" autocapitalize="none" spellcheck="false">
+            </div>
+            <div class="form-group">
+              <label for="input-password">Password</label>
+              <input type="password" id="input-password" required placeholder="Password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Log In</button>
+          </form>
+
+          <div class="demo-logins">
+            <p class="demo-title">Demo accounts:</p>
+            <div class="demo-buttons">
+              <button class="btn btn-sm btn-outline quick-login" data-user="supplier">Supplier (Northwind)</button>
+              <button class="btn btn-sm btn-outline quick-login" data-user="buyer">Buyer (Acme)</button>
+              <button class="btn btn-sm btn-outline quick-login" data-user="carrier">Carrier (Pacific)</button>
+              <button class="btn btn-sm btn-outline quick-login" data-user="arbiter">Arbiter (Meridian)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-list" class="view hidden">
+        <div class="view-header">
+          <div class="view-title">
+            <h2>Disputes</h2>
+            <p class="subtitle" id="list-subtitle">Disputes visible to your account</p>
+            <p class="role-line" id="role-line"></p>
+          </div>
+          <div class="view-actions">
+            <button id="btn-open-raise-modal" class="btn btn-primary hidden">+ Raise Dispute</button>
+          </div>
+        </div>
+
+        <dialog id="raise-modal" class="modal-content" closedby="any" aria-labelledby="raise-title">
+          <div class="modal-header">
+            <h2 id="raise-title">Raise a dispute</h2>
+            <button class="close-btn" id="btn-close-raise" aria-label="Close">&times;</button>
+          </div>
+          <form id="form-raise-dispute">
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="input-order-ref">Order Reference</label>
+                <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="[A-Za-z0-9_.\/\-]+" maxlength="100" autocomplete="off" spellcheck="false" aria-describedby="order-ref-hint">
+                <small id="order-ref-hint">Letters, numbers and - _ / . only</small>
+              </div>
+              <div class="form-group">
+                <label for="select-respondent">Respondent</label>
+                <select id="select-respondent" required>
+                  <option value="">Select respondent...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="input-description">What happened</label>
+                <textarea id="input-description" required rows="4" maxlength="2000" placeholder="e.g. 5 of 40 pallets arrived water-damaged"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline" id="btn-cancel-raise">Cancel</button>
+              <button type="submit" class="btn btn-primary">Raise Dispute</button>
+            </div>
+          </form>
+        </dialog>
+
+        <div id="disputes-list" class="disputes-grid"></div>
+      </section>
+
+      <section id="view-detail" class="view hidden">
+        <div class="view-header">
+          <button id="btn-back-to-list" class="btn btn-sm btn-outline">&larr; Back to Disputes</button>
+        </div>
+
+        <div id="dispute-detail-content"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
