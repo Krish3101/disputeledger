@@ -112,6 +112,7 @@ src/
   routes.ts     endpoints and Zod validation
   app.ts        builds the Express app (exported so tests can drive it)
   main.ts       starts the server, handles shutdown
+  seed.ts       demo users and disputes
 public/         single-page frontend
 tests/          domain rules and API tests
 ```
