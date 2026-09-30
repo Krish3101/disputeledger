@@ -163,8 +163,8 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
     }
   }
 
-  // A dispute or evidence row with no event was inserted outside the app. There is no
-  // event to point at, so firstBadEventId is null.
+  // A dispute, evidence note or ruling with no event was written outside the app. There
+  // is no event to point at, so firstBadEventId is null.
   const disputesCount = (db.prepare('SELECT COUNT(*) as c FROM disputes').get() as any).c;
   const raisedEventsCount = events.filter((e) => e.type === 'DISPUTE_RAISED').length;
   if (disputesCount !== raisedEventsCount) {
@@ -174,6 +174,12 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
   const evidenceCount = (db.prepare('SELECT COUNT(*) as c FROM evidence').get() as any).c;
   const evidenceEventsCount = events.filter((e) => e.type === 'EVIDENCE_ADDED').length;
   if (evidenceCount !== evidenceEventsCount) {
+    return { ok: false, firstBadEventId: null };
+  }
+
+  const resolvedCount = (db.prepare("SELECT COUNT(*) as c FROM disputes WHERE status = 'RESOLVED'").get() as any).c;
+  const resolvedEventsCount = events.filter((e) => e.type === 'DISPUTE_RESOLVED').length;
+  if (resolvedCount !== resolvedEventsCount) {
     return { ok: false, firstBadEventId: null };
   }
 

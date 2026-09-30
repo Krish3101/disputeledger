@@ -479,5 +479,26 @@ describe('API End-to-End Tests', () => {
       expect(res.body.ok).toBe(false);
       expect(res.body.firstBadEventId).toBeNull();
     });
+
+    it('catches a dispute marked resolved in the database without a ruling event', async () => {
+      const supplierToken = await login('supplier');
+      const raiseRes = await request(app)
+        .post('/api/disputes')
+        .set('Authorization', `Bearer ${supplierToken}`)
+        .send({ orderReference: 'PO-FORGED', description: 'damaged cartons', respondentId: 'u-dana' })
+        .expect(201);
+
+      db.prepare(
+        "UPDATE disputes SET status = 'RESOLVED', resolutionNote = ?, resolvedById = ?, resolvedAt = ? WHERE id = ?"
+      ).run('forged ruling', 'u-ari', new Date().toISOString(), raiseRes.body.id);
+
+      const res = await request(app)
+        .get('/api/integrity')
+        .set('Authorization', `Bearer ${supplierToken}`)
+        .expect(200);
+
+      expect(res.body.ok).toBe(false);
+      expect(res.body.firstBadEventId).toBeNull();
+    });
   });
 });
