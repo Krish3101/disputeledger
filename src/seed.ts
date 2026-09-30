@@ -60,27 +60,29 @@ for (const u of seedUsers) {
   insertUser.run(u.id, u.username, u.displayName, u.passwordHash, u.role);
 }
 
+const [sam, dana, chris, ari] = seedUsers;
+
 // 1. OPEN dispute: Supplier vs Buyer with evidence from both sides
 const dispute1 = raiseDispute(
   db,
-  { id: 'u-sam', username: 'supplier', displayName: 'Sam Ortiz (Northwind Supply)', role: 'partner' },
+  sam,
   {
     orderReference: 'PO-8834',
     description: '5 of 40 pallets arrived water-damaged upon arrival at receiving dock.',
-    respondentId: 'u-dana',
+    respondentId: dana.id,
   }
 );
 
 addEvidence(
   db,
-  { id: 'u-sam', username: 'supplier', displayName: 'Sam Ortiz (Northwind Supply)', role: 'partner' },
+  sam,
   dispute1.id,
   { notes: 'Carrier POD photos, ref PH-4471 showing water ingress on delivery.' }
 );
 
 addEvidence(
   db,
-  { id: 'u-dana', username: 'buyer', displayName: 'Dana Reyes (Acme Retail)', role: 'partner' },
+  dana,
   dispute1.id,
   { notes: 'Receiving dock inspection report DR-202 confirmed package dampness and box deformation.' }
 );
@@ -88,31 +90,31 @@ addEvidence(
 // 2. RESOLVED dispute: Buyer vs Carrier with evidence and resolution
 const dispute2 = raiseDispute(
   db,
-  { id: 'u-dana', username: 'buyer', displayName: 'Dana Reyes (Acme Retail)', role: 'partner' },
+  dana,
   {
     orderReference: 'PO-7712',
     description: 'Short shipment: invoice billed 100 cartons, only 90 received.',
-    respondentId: 'u-chris',
+    respondentId: chris.id,
   }
 );
 
 addEvidence(
   db,
-  { id: 'u-dana', username: 'buyer', displayName: 'Dana Reyes (Acme Retail)', role: 'partner' },
+  dana,
   dispute2.id,
   { notes: 'Delivery receipt marked with shortage exception on line 3.' }
 );
 
 addEvidence(
   db,
-  { id: 'u-chris', username: 'carrier', displayName: 'Chris Vance (Pacific Freight)', role: 'partner' },
+  chris,
   dispute2.id,
   { notes: 'Transfer manifest TM-903 indicates only 90 cartons were received from origin warehouse.' }
 );
 
 resolveDispute(
   db,
-  { id: 'u-ari', username: 'arbiter', displayName: 'Ari Lund (Meridian Arbitration)', role: 'arbiter' },
+  ari,
   dispute2.id,
   {
     resolutionNote:

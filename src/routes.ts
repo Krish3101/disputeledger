@@ -1,12 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import type { Database } from 'better-sqlite3';
-import {
-  DomainError,
-  UnauthenticatedError,
-  ValidationError,
-  type UserRole,
-} from './domain.js';
+import { DomainError, UnauthenticatedError } from './domain.js';
 import { deleteSession, getSessionUser, loginUser, type AuthUser } from './auth.js';
 import {
   addEvidence,
@@ -75,11 +70,6 @@ export function createRouter(db: Database): Router {
     next();
   }
 
-  function getParamId(req: Request): string {
-    const id = req.params.id;
-    return Array.isArray(id) ? id[0] : id;
-  }
-
   // Public routes
   router.post('/login', (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -138,7 +128,7 @@ export function createRouter(db: Database): Router {
 
   router.get('/disputes/:id', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const dispute = getDispute(db, req.user!, getParamId(req));
+      const dispute = getDispute(db, req.user!, req.params.id);
       res.json(dispute);
     } catch (err) {
       next(err);
@@ -148,7 +138,7 @@ export function createRouter(db: Database): Router {
   router.post('/disputes/:id/evidence', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const data = addEvidenceSchema.parse(req.body);
-      const dispute = addEvidence(db, req.user!, getParamId(req), data);
+      const dispute = addEvidence(db, req.user!, req.params.id, data);
       res.status(201).json(dispute);
     } catch (err) {
       next(err);
@@ -158,7 +148,7 @@ export function createRouter(db: Database): Router {
   router.post('/disputes/:id/resolution', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const data = resolveDisputeSchema.parse(req.body);
-      const dispute = resolveDispute(db, req.user!, getParamId(req), data);
+      const dispute = resolveDispute(db, req.user!, req.params.id, data);
       res.json(dispute);
     } catch (err) {
       next(err);
@@ -167,7 +157,7 @@ export function createRouter(db: Database): Router {
 
   router.get('/disputes/:id/events', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const items = getDisputeEvents(db, req.user!, getParamId(req));
+      const items = getDisputeEvents(db, req.user!, req.params.id);
       res.json({ items });
     } catch (err) {
       next(err);
