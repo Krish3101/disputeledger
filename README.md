@@ -9,14 +9,14 @@ Every change appends an event to an HMAC-SHA256 hash chain, with each event's ha
 the one before it. Editing a row directly in SQLite breaks the chain, and the integrity check
 reports which event was tampered with.
 
+**Stack:** TypeScript on Node.js 22, Express, better-sqlite3, Zod, Vitest with supertest, a plain HTML/CSS/JS frontend, Render.
+
 **Live demo:** <https://disputeledger.onrender.com>. Log in with the quick buttons; the demo
 resets every time the free server restarts, and the first load can take about a minute.
 
 ![A dispute with its evidence and the hash chain underneath](docs/dispute.png)
 
 ## What the chain proves, and what it doesn't
-
-Worth being clear about this up front, because it is easy to oversell.
 
 It shows a row hasn't been edited directly in the database. Each event's hash covers the
 previous event's hash, so changing anything in the middle invalidates every event after it,
