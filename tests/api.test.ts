@@ -458,5 +458,26 @@ describe('API End-to-End Tests', () => {
       expect(integrityEventTampered.body.ok).toBe(false);
       expect(integrityEventTampered.body.firstBadEventId).toBe(1);
     });
+
+    it('reports no event id when evidence is inserted without a ledger event', async () => {
+      const supplierToken = await login('supplier');
+      const raiseRes = await request(app)
+        .post('/api/disputes')
+        .set('Authorization', `Bearer ${supplierToken}`)
+        .send({ orderReference: 'PO-UNLOGGED', description: 'short shipment', respondentId: 'u-dana' })
+        .expect(201);
+
+      db.prepare(
+        'INSERT INTO evidence (id, disputeId, submittedById, notes, createdAt) VALUES (?, ?, ?, ?, ?)'
+      ).run('ev-unlogged', raiseRes.body.id, 'u-sam', 'added by hand', new Date().toISOString());
+
+      const res = await request(app)
+        .get('/api/integrity')
+        .set('Authorization', `Bearer ${supplierToken}`)
+        .expect(200);
+
+      expect(res.body.ok).toBe(false);
+      expect(res.body.firstBadEventId).toBeNull();
+    });
   });
 });

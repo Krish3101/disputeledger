@@ -89,7 +89,7 @@ export function computeEventHash(prevHash: string, event: EventInput): string {
 
 export type VerifyChainResult =
   | { ok: true; eventsChecked: number }
-  | { ok: false; firstBadEventId: number };
+  | { ok: false; firstBadEventId: number | null };
 
 export function verifyChain(events: (StoredEventRow | (EventInput & { prevHash: string; hash: string }))[]): VerifyChainResult {
   let expectedPrevHash = GENESIS_PREV_HASH;
@@ -157,17 +157,18 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
     }
   }
 
-  // Ensure no unlogged disputes or evidence exist
+  // A dispute or evidence row with no event was inserted outside the app. There is no
+  // event to point at, so firstBadEventId is null.
   const disputesCount = (db.prepare('SELECT COUNT(*) as c FROM disputes').get() as any).c;
   const raisedEventsCount = events.filter((e) => e.type === 'DISPUTE_RAISED').length;
   if (disputesCount !== raisedEventsCount) {
-    return { ok: false, firstBadEventId: events.length > 0 ? events[0].id : 0 };
+    return { ok: false, firstBadEventId: null };
   }
 
   const evidenceCount = (db.prepare('SELECT COUNT(*) as c FROM evidence').get() as any).c;
   const evidenceEventsCount = events.filter((e) => e.type === 'EVIDENCE_ADDED').length;
   if (evidenceCount !== evidenceEventsCount) {
-    return { ok: false, firstBadEventId: events.length > 0 ? events[0].id : 0 };
+    return { ok: false, firstBadEventId: null };
   }
 
   return { ok: true, eventsChecked: events.length };

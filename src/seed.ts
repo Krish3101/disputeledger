@@ -126,7 +126,9 @@ console.log('---------------------------------------------------------');
 console.log(`Database seeded at: ${dbPath}`);
 const integrityMsg = integrity.ok
   ? `OK (${integrity.eventsChecked} events verified)`
-  : `FAILED (tampered at event #${integrity.firstBadEventId})`;
+  : integrity.firstBadEventId === null
+    ? 'FAILED (row with no ledger event)'
+    : `FAILED (tampered at event #${integrity.firstBadEventId})`;
 console.log(`Ledger Integrity: ${integrityMsg}`);
 console.log('---------------------------------------------------------');
 console.log('Seeded Users (Password: password123):');

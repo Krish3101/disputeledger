@@ -452,10 +452,13 @@ async function runIntegrityCheck() {
         </div>
       `;
     } else {
+      const where = res.firstBadEventId === null
+        ? 'A dispute or evidence row exists that has no event in the ledger.'
+        : `Tampering detected at <strong>Event #${res.firstBadEventId}</strong>! The stored record or hash chain does not match original cryptographic state.`;
       integrityResult.innerHTML = `
         <div class="alert alert-danger" style="margin: 0;">
           <h4>INTEGRITY VIOLATION DETECTED</h4>
-          <p style="margin-top: 0.5rem;">Tampering detected at <strong>Event #${res.firstBadEventId}</strong>! The stored record or hash chain does not match original cryptographic state.</p>
+          <p style="margin-top: 0.5rem;">${where}</p>
         </div>
       `;
     }

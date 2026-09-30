@@ -11,9 +11,14 @@ reports which event was tampered with.
 
 Worth being clear about this up front, because it is easy to oversell.
 
-It shows the ledger has not been edited after the fact. Each event's hash covers the
+It shows a row hasn't been edited directly in the database. Each event's hash covers the
 previous event's hash, so changing anything in the middle invalidates every event after it,
 and recomputing the chain finds exactly where.
+
+It doesn't stop someone who rewrites the whole chain. The hashes use no secret key, so
+anyone with write access to the database file can edit a row, recompute every hash after
+it, and the check passes again. Keying the hashes (HMAC) with a secret kept outside the
+database would close that gap.
 
 It does not make anyone honest. The app writes the chain itself, so whoever can run the app
 can append whatever they like at the time. This catches tampering with history; it does
