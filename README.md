@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml/badge.svg)](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml)
 
-A web app for tracking commercial disputes — damaged cargo, short shipments — between
+A web app for tracking commercial disputes (damaged cargo, short shipments) between
 supply chain partners, where the record of what happened can't be quietly altered.
 
 Every change appends an event to an HMAC-SHA256 hash chain, with each event's hash covering
@@ -36,7 +36,7 @@ It does not make anyone honest. The app writes the chain itself, so whoever can 
 can append whatever they like at the time. This catches tampering with history; it does
 nothing about a lie recorded truthfully.
 
-There is no blockchain here and no distributed consensus — it is one SQLite file with a
+There is no blockchain here and no distributed consensus. It is one SQLite file with a
 verifiable append-only log over it.
 
 ## Catching a tamper
@@ -67,7 +67,7 @@ Seeded accounts, password `password123` for all of them:
 | `arbiter` | arbiter | Ari Lund, Meridian Arbitration |
 
 Log in as `supplier`, raise a dispute against Dana Reyes, and add an evidence note. Log in
-as `buyer` and add counter-evidence. Log in as `carrier` — the dispute isn't in the list,
+as `buyer` and add counter-evidence. Log in as `carrier`: the dispute isn't in the list,
 and opening its URL gives a 404 rather than a 403, so an uninvolved partner can't even
 confirm it exists. Log in as `arbiter` and record a ruling; the dispute moves to `RESOLVED`
 and stops accepting evidence.
@@ -125,7 +125,7 @@ itself each time it starts.
 ## Still missing
 
 Evidence is text notes only. The walkthrough talks about photos of water ingress, but
-there's no file upload — you describe the photo rather than attach it, which is the main
+there's no file upload, so you describe the photo rather than attach it, which is the main
 thing I'd add next.
 
 ## License
