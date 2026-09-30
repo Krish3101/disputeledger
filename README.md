@@ -7,6 +7,8 @@ Every change appends an event to an HMAC-SHA256 hash chain, with each event's ha
 the one before it. Editing a row directly in SQLite breaks the chain, and the integrity check
 reports which event was tampered with.
 
+![A dispute with its evidence and the hash chain underneath](docs/dispute.png)
+
 ## What the chain proves, and what it doesn't
 
 Worth being clear about this up front, because it is easy to oversell.
@@ -38,6 +40,8 @@ sqlite3 dispute.db "UPDATE evidence SET notes='never happened' WHERE id=(SELECT 
 
 Then click **Check Ledger Integrity**. It recomputes the chain and names the event that no
 longer matches.
+
+![The integrity check naming the edited event](docs/tamper-caught.png)
 
 Each state change writes its event inside the same SQLite transaction as the change itself,
 so the ledger can't drift from the data it describes.
