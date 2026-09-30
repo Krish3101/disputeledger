@@ -6,6 +6,7 @@ import {
   assertCanResolve,
   assertUserCanRaiseDispute,
   canUserAddEvidence,
+  canUserResolveDispute,
   canUserViewDispute,
   ForbiddenError,
   NotFoundError,
@@ -234,16 +235,17 @@ export function addEvidence(
   disputeId: string,
   input: { notes: string }
 ): DisputeRepresentation {
-  if (user.role === 'arbiter') {
-    throw new ForbiddenError('Arbiters cannot add evidence.');
-  }
-
   const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId) as any;
   if (!dispute) {
     throw new NotFoundError();
   }
 
   if (!canUserAddEvidence(user, dispute)) {
+    // Someone who can see the dispute (the arbiter) is told no. Anyone else gets a 404,
+    // so they can't learn that it exists.
+    if (canUserViewDispute(user, dispute)) {
+      throw new ForbiddenError('Only the two parties can add evidence.');
+    }
     throw new NotFoundError();
   }
 
@@ -276,8 +278,8 @@ export function resolveDispute(
   disputeId: string,
   input: { resolutionNote: string }
 ): DisputeRepresentation {
-  if (user.role !== 'arbiter') {
-    throw new ForbiddenError('Only arbiters can resolve disputes.');
+  if (!canUserResolveDispute(user)) {
+    throw new ForbiddenError('Only an arbiter can resolve a dispute.');
   }
 
   const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId) as any;
