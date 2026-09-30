@@ -1,5 +1,7 @@
 # Dispute Ledger
 
+[![tests](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml/badge.svg)](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml)
+
 A web app for tracking commercial disputes — damaged cargo, short shipments — between
 supply chain partners, where the record of what happened can't be quietly altered.
 
@@ -78,7 +80,7 @@ wrong password and an unknown username take the same time to reject.
 
 ## Running it
 
-Needs Node.js 20 or newer.
+Needs Node.js 22 or newer.
 
 ```bash
 ./scripts/start.sh

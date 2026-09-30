@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Tamper-evident dispute case file ledger",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "tsx watch --env-file=.env src/main.ts",
     "start": "tsx --env-file=.env src/main.ts",

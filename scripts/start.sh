@@ -3,6 +3,11 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+if ! node -e 'process.exit(parseInt(process.versions.node) >= 22 ? 0 : 1)' 2>/dev/null; then
+  echo "Error: Dispute Ledger needs Node.js 22 or newer (found $(node --version 2>/dev/null || echo none))."
+  exit 1
+fi
+
 # Every ledger event is keyed with LEDGER_KEY. Generate one the first time.
 if ! grep -q '^LEDGER_KEY=.' .env 2>/dev/null; then
   [ -f .env ] || cp .env.example .env
