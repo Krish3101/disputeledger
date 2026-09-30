@@ -1,4 +1,42 @@
 import DatabaseConstructor, { type Database } from 'better-sqlite3';
+import type { DisputeStatus, UserRole } from './domain.js';
+
+export interface UserRow {
+  id: string;
+  username: string;
+  displayName: string;
+  passwordHash: string;
+  role: UserRole;
+}
+
+export interface DisputeRow {
+  id: string;
+  orderReference: string;
+  description: string;
+  status: DisputeStatus;
+  claimantId: string;
+  respondentId: string;
+  createdAt: string;
+  resolutionNote: string | null;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+}
+
+export interface EvidenceRow {
+  id: string;
+  disputeId: string;
+  submittedById: string;
+  notes: string;
+  createdAt: string;
+}
+
+export function findDispute(db: Database, id: string): DisputeRow | undefined {
+  return db.prepare('SELECT * FROM disputes WHERE id = ?').get(id) as DisputeRow | undefined;
+}
+
+export function countRows(db: Database, sql: string): number {
+  return (db.prepare(sql).get() as { c: number }).c;
+}
 
 export function createDb(dbPath: string = ':memory:'): Database {
   const db = new DatabaseConstructor(dbPath);

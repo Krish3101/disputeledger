@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
 import type { AuthUser } from './auth.js';
+import { findDispute, type DisputeRow } from './db.js';
 import {
   assertCanAddEvidence,
   assertCanResolve,
@@ -17,8 +18,20 @@ import {
   computeEventHash,
   GENESIS_PREV_HASH,
   type EventPayload,
+  type StoredEventRow,
   buildCanonicalPayload,
 } from './audit.js';
+
+export interface DisputeEvent {
+  id: number;
+  disputeId: string;
+  type: string;
+  actor: UserSummary;
+  payload: unknown;
+  occurredAt: string;
+  prevHash: string;
+  hash: string;
+}
 
 export interface UserSummary {
   id: string;
@@ -88,7 +101,7 @@ function appendEvent(
 
 function formatDispute(
   db: Database,
-  dispute: any,
+  dispute: DisputeRow,
   includeEvidence: boolean
 ): DisputeRepresentation {
   const claimant = db
@@ -105,9 +118,9 @@ function formatDispute(
       .prepare('SELECT id, displayName FROM users WHERE id = ?')
       .get(dispute.resolvedById) as UserSummary;
     resolution = {
-      note: dispute.resolutionNote,
+      note: dispute.resolutionNote as string,
       by: resolver,
-      at: dispute.resolvedAt,
+      at: dispute.resolvedAt as string,
     };
   }
 
@@ -115,7 +128,7 @@ function formatDispute(
     id: dispute.id,
     orderReference: dispute.orderReference,
     description: dispute.description,
-    status: dispute.status as DisputeStatus,
+    status: dispute.status,
     claimant,
     respondent,
     createdAt: dispute.createdAt,
@@ -131,7 +144,13 @@ function formatDispute(
          WHERE e.disputeId = ?
          ORDER BY e.createdAt ASC`
       )
-      .all(dispute.id) as any[];
+      .all(dispute.id) as {
+      id: string;
+      submittedById: string;
+      notes: string;
+      createdAt: string;
+      displayName: string;
+    }[];
 
     result.evidence = evidenceRows.map((row) => ({
       id: row.id,
@@ -184,8 +203,7 @@ export function raiseDispute(
 
   insertDisputeTx();
 
-  const created = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId);
-  return formatDispute(db, created, true);
+  return formatDispute(db, findDispute(db, disputeId) as DisputeRow, true);
 }
 
 export function getDispute(
@@ -193,7 +211,7 @@ export function getDispute(
   user: AuthUser,
   disputeId: string
 ): DisputeRepresentation {
-  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId) as any;
+  const dispute = findDispute(db, disputeId);
   if (!dispute) {
     throw new NotFoundError();
   }
@@ -211,7 +229,7 @@ export function listDisputes(
   statusFilter?: string
 ): DisputeRepresentation[] {
   let query = 'SELECT * FROM disputes WHERE 1=1';
-  const params: any[] = [];
+  const params: string[] = [];
 
   if (user.role === 'partner') {
     query += ' AND (claimantId = ? OR respondentId = ?)';
@@ -225,7 +243,7 @@ export function listDisputes(
 
   query += ' ORDER BY createdAt DESC';
 
-  const rows = db.prepare(query).all(...params) as any[];
+  const rows = db.prepare(query).all(...params) as DisputeRow[];
   return rows.map((row) => formatDispute(db, row, false));
 }
 
@@ -235,7 +253,7 @@ export function addEvidence(
   disputeId: string,
   input: { notes: string }
 ): DisputeRepresentation {
-  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId) as any;
+  const dispute = findDispute(db, disputeId);
   if (!dispute) {
     throw new NotFoundError();
   }
@@ -268,8 +286,7 @@ export function addEvidence(
 
   addEvidenceTx();
 
-  const updated = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId);
-  return formatDispute(db, updated, true);
+  return formatDispute(db, findDispute(db, disputeId) as DisputeRow, true);
 }
 
 export function resolveDispute(
@@ -282,7 +299,7 @@ export function resolveDispute(
     throw new ForbiddenError('Only an arbiter can resolve a dispute.');
   }
 
-  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId) as any;
+  const dispute = findDispute(db, disputeId);
   if (!dispute) {
     throw new NotFoundError();
   }
@@ -305,16 +322,15 @@ export function resolveDispute(
 
   resolveTx();
 
-  const updated = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId);
-  return formatDispute(db, updated, true);
+  return formatDispute(db, findDispute(db, disputeId) as DisputeRow, true);
 }
 
 export function getDisputeEvents(
   db: Database,
   user: AuthUser,
   disputeId: string
-): any[] {
-  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(disputeId) as any;
+): DisputeEvent[] {
+  const dispute = findDispute(db, disputeId);
   if (!dispute) {
     throw new NotFoundError();
   }
@@ -331,7 +347,7 @@ export function getDisputeEvents(
        WHERE e.disputeId = ?
        ORDER BY e.id ASC`
     )
-    .all(disputeId) as any[];
+    .all(disputeId) as (StoredEventRow & { displayName: string })[];
 
   return events.map((ev) => ({
     id: ev.id,

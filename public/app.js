@@ -3,7 +3,6 @@
 let authToken = localStorage.getItem('dl_token') || null;
 let currentUser = null;
 let currentFilter = '';
-let currentDisputeId = null;
 
 const appHeader = document.getElementById('app-header');
 const userInfo = document.getElementById('user-info');
@@ -41,7 +40,7 @@ const disputeDetailContent = document.getElementById('dispute-detail-content');
 async function api(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    ...(options.headers || {}),
+    ...options.headers,
   };
 
   if (authToken) {
@@ -114,7 +113,7 @@ async function init() {
       currentUser = data.user;
       renderAuthenticatedHeader();
       await showDisputesListView();
-    } catch (err) {
+    } catch {
       logout();
     }
   } else {
@@ -156,7 +155,6 @@ async function logout() {
 
 async function showDisputesListView() {
   showView(viewList);
-  currentDisputeId = null;
   await loadDisputes();
 }
 
@@ -209,7 +207,6 @@ async function loadDisputes() {
 }
 
 async function showDisputeDetailView(disputeId) {
-  currentDisputeId = disputeId;
   showView(viewDetail);
   disputeDetailContent.innerHTML = '<p class="empty-state">Loading dispute details...</p>';
 

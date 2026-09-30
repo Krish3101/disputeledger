@@ -1,7 +1,10 @@
 import { createHmac } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
+import { countRows, findDispute, type EvidenceRow } from './db.js';
 
 export const GENESIS_PREV_HASH = '0'.repeat(64);
+
+export type CanonicalPayload = Record<string, unknown>;
 
 export interface DisputeRaisedPayload {
   orderReference: string;
@@ -29,7 +32,7 @@ export interface EventInput {
   type: string;
   actorId: string;
   occurredAt: string;
-  payload: EventPayload | string;
+  payload: EventPayload | CanonicalPayload | string;
 }
 
 export interface StoredEventRow {
@@ -43,8 +46,8 @@ export interface StoredEventRow {
   hash: string;
 }
 
-export function buildCanonicalPayload(type: string, rawPayload: any): any {
-  const parsed = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+export function buildCanonicalPayload(type: string, rawPayload: EventInput['payload']): CanonicalPayload {
+  const parsed = (typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload) as CanonicalPayload;
   switch (type) {
     case 'DISPUTE_RAISED':
       return {
@@ -130,7 +133,7 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
     const payload = buildCanonicalPayload(event.type, event.payload);
 
     if (event.type === 'DISPUTE_RAISED') {
-      const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(event.disputeId) as any;
+      const dispute = findDispute(db, event.disputeId);
       if (
         !dispute ||
         dispute.orderReference !== payload.orderReference ||
@@ -141,7 +144,9 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
         return { ok: false, firstBadEventId: event.id };
       }
     } else if (event.type === 'EVIDENCE_ADDED') {
-      const evidence = db.prepare('SELECT * FROM evidence WHERE id = ?').get(payload.evidenceId) as any;
+      const evidence = db.prepare('SELECT * FROM evidence WHERE id = ?').get(payload.evidenceId) as
+        | EvidenceRow
+        | undefined;
       if (
         !evidence ||
         evidence.disputeId !== event.disputeId ||
@@ -151,7 +156,7 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
         return { ok: false, firstBadEventId: event.id };
       }
     } else if (event.type === 'DISPUTE_RESOLVED') {
-      const dispute = db.prepare('SELECT * FROM disputes WHERE id = ?').get(event.disputeId) as any;
+      const dispute = findDispute(db, event.disputeId);
       if (
         !dispute ||
         dispute.status !== 'RESOLVED' ||
@@ -165,19 +170,19 @@ export function verifyLedgerIntegrity(db: Database): VerifyChainResult {
 
   // A dispute, evidence note or ruling with no event was written outside the app. There
   // is no event to point at, so firstBadEventId is null.
-  const disputesCount = (db.prepare('SELECT COUNT(*) as c FROM disputes').get() as any).c;
+  const disputesCount = countRows(db, 'SELECT COUNT(*) as c FROM disputes');
   const raisedEventsCount = events.filter((e) => e.type === 'DISPUTE_RAISED').length;
   if (disputesCount !== raisedEventsCount) {
     return { ok: false, firstBadEventId: null };
   }
 
-  const evidenceCount = (db.prepare('SELECT COUNT(*) as c FROM evidence').get() as any).c;
+  const evidenceCount = countRows(db, 'SELECT COUNT(*) as c FROM evidence');
   const evidenceEventsCount = events.filter((e) => e.type === 'EVIDENCE_ADDED').length;
   if (evidenceCount !== evidenceEventsCount) {
     return { ok: false, firstBadEventId: null };
   }
 
-  const resolvedCount = (db.prepare("SELECT COUNT(*) as c FROM disputes WHERE status = 'RESOLVED'").get() as any).c;
+  const resolvedCount = countRows(db, "SELECT COUNT(*) as c FROM disputes WHERE status = 'RESOLVED'");
   const resolvedEventsCount = events.filter((e) => e.type === 'DISPUTE_RESOLVED').length;
   if (resolvedCount !== resolvedEventsCount) {
     return { ok: false, firstBadEventId: null };

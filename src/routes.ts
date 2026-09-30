@@ -183,7 +183,7 @@ export function createRouter(db: Database): Router {
     });
   });
 
-  router.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof DomainError) {
       return res.status(err.statusCode).json({
         error: {

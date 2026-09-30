@@ -7,7 +7,7 @@ import { hashPassword } from '../src/auth.js';
 
 describe('API End-to-End Tests', () => {
   let db: Database;
-  let app: any;
+  let app: ReturnType<typeof createApp>;
 
   const password = 'password123';
   const passwordHash = hashPassword(password);

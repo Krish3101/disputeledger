@@ -1,6 +1,7 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
-import { InvalidCredentialsError, UnauthenticatedError, type UserRole } from './domain.js';
+import type { UserRow } from './db.js';
+import { InvalidCredentialsError, type UserRole } from './domain.js';
 
 const DUMMY_SALT = '0123456789abcdef0123456789abcdef';
 const DUMMY_HASH = scryptSync('dummy-password', DUMMY_SALT, 64).toString('hex');
@@ -58,7 +59,7 @@ export function getSessionUser(db: Database, token: string): AuthUser | null {
        JOIN users u ON s.userId = u.id
        WHERE s.token = ?`
     )
-    .get(token) as any;
+    .get(token) as (Omit<UserRow, 'passwordHash'> & { expiresAt: string }) | undefined;
 
   if (!row) {
     return null;
@@ -74,7 +75,7 @@ export function getSessionUser(db: Database, token: string): AuthUser | null {
     id: row.id,
     username: row.username,
     displayName: row.displayName,
-    role: row.role as UserRole,
+    role: row.role,
   };
 }
 
@@ -83,7 +84,7 @@ export function loginUser(
   username: string,
   password: string
 ): { token: string; user: AuthUser } {
-  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as any;
+  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as UserRow | undefined;
 
   if (!row) {
     // Constant-time dummy verification to prevent timing attack enumeration
@@ -104,7 +105,7 @@ export function loginUser(
       id: row.id,
       username: row.username,
       displayName: row.displayName,
-      role: row.role as UserRole,
+      role: row.role,
     },
   };
 }
