@@ -2,81 +2,96 @@
 
 [![tests](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml/badge.svg)](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml)
 
-A web app for tracking commercial disputes (damaged cargo, short shipments) between
-supply chain partners, where the record of what happened can't be quietly altered.
+A buyer, a supplier, a carrier and an arbiter share one case file per dispute (damaged
+pallets, a short shipment). Nobody, including whoever runs the database, should be able to
+quietly change that record afterwards.
 
-Every change appends an event to an HMAC-SHA256 hash chain, with each event's hash covering
-the one before it. Editing a row directly in SQLite breaks the chain, and the integrity check
-reports which event was tampered with.
+So every write is HMAC-chained in the same transaction as its row, and a check replays the
+chain against the live tables and names the first record that was altered. The dispute app
+is the demo; the part worth reading is the audit-log layer under it.
 
 **Stack:** TypeScript on Node.js 22, Express, better-sqlite3, Zod, Vitest with supertest, a plain HTML/CSS/JS frontend, Render.
 
 **Live demo:** <https://disputeledger.onrender.com>. Log in with the quick buttons; the demo
-resets every time the free server restarts, and the first load can take about a minute.
+reseeds every time the free server restarts, and the first load can take about a minute.
 
-![A dispute with its evidence and the hash chain underneath](docs/dispute.png)
+![The ledger check naming the edited event](docs/tamper-caught.png)
 
-## What the chain proves, and what it doesn't
+## What it detects, and what it can't
 
-It shows a row hasn't been edited directly in the database. Each event's hash covers the
-previous event's hash, so changing anything in the middle invalidates every event after it,
-and recomputing the chain finds exactly where.
+Someone with the database file but not `LEDGER_KEY` (a stolen backup, an admin with disk
+access) can run any SQL they like. The check catches:
 
-It can't see the end being cut off. Delete the newest event together with the row it
-describes, and what's left is still a valid chain. Catching that needs the latest hash kept
-somewhere outside the database, which this doesn't do.
+| Attack | Reported as |
+|---|---|
+| Edit a row (an evidence note, a ruling) | `ROW_MISMATCH` at that row's event |
+| Backdate a timestamp | `ROW_MISMATCH` |
+| Swap two events | `CHAIN_BROKEN` |
+| Delete an event in the middle | `CHAIN_BROKEN`, naming the missing event |
+| Rehash the chain with plain SHA-256 (no key) | `CHAIN_BROKEN` |
+| Insert a row with no event (a forged dispute, evidence or ruling) | `ORPHAN_ROW` with the row's id |
+| Inject an extra field, or reorder keys, in a stored payload | `PAYLOAD_NOT_CANONICAL` |
 
-The hashes are keyed with `LEDGER_KEY`, which lives in `.env` and not in the database. Without
-it, someone who edits a row can't recompute a chain that passes, even if they rehash every
-event after the edit. Plain SHA-256 wouldn't stop that, which is why the key is there. It only
-helps while the key stays secret: whoever has both the database and `.env` can still rewrite
-history.
+It cannot detect:
 
-It does not make anyone honest. The app writes the chain itself, so whoever can run the app
-can append whatever they like at the time. This catches tampering with history; it does
-nothing about a lie recorded truthfully.
+- **Deleting the newest events, or wiping everything.** What's left is still a valid chain.
+  Catching that needs the latest hash held somewhere outside the server.
+- **A full rewrite by someone holding `LEDGER_KEY`.** The key is what makes the chain hard to
+  forge, so whoever has the database and `.env` can rebuild history.
+- **A lie told at write time.** The ledger proves a record wasn't changed later; it does not
+  prove it was true.
 
-There is no blockchain here and no distributed consensus. It is one SQLite file with a
-verifiable append-only log over it.
+Users, password hashes and sessions are not covered by the chain.
 
-## Catching a tamper
+**Next steps:** signed checkpoints of the chain head, handed to the parties and kept outside
+the server, which would catch truncation and rewrites by the key holder.
 
-With the server running, edit the database underneath it:
+## Try the tamper demo
+
+Tamper with a **copy**, then check it offline (stop the server first, so the copy includes
+writes still sitting in the WAL file):
 
 ```bash
-sqlite3 dispute.db "UPDATE evidence SET notes='never happened' WHERE id=(SELECT id FROM evidence LIMIT 1);"
+cp dispute.db copy.db
+sqlite3 copy.db "UPDATE evidence SET notes='never happened' WHERE rowid=1"
+npm run verify -- --db copy.db
+# ROW_MISMATCH at event #2 (dispute 6cea...)
+# The row for event #2 (EVIDENCE_ADDED) no longer matches it
 ```
 
-Then click **Check Ledger Integrity**. It recomputes the chain and names the event that no
-longer matches.
+`npm run verify` exits 0 when the ledger checks out, 1 when it was tampered with and 2 for
+bad input. It opens the file read-only and runs the same check as the API.
 
-![The integrity check naming the edited event](docs/tamper-caught.png)
+Or serve the copy on a second port and click **Verify ledger** as the arbiter:
 
-Each state change writes its event inside the same SQLite transaction as the change itself,
-so the ledger can't drift from the data it describes.
+```bash
+PORT=3001 DB_PATH=copy.db npm start
+```
 
-## The four roles
+A red banner names the reason and the first bad event, and stays while you move around.
+**Go to event** opens the dispute with that event marked `TAMPERED` and every later event
+marked as not trusted.
 
-Seeded accounts, password `password123` for all of them:
+## Design
 
-| user | role | acting as |
-|---|---|---|
-| `supplier` | partner | Sam Ortiz, Northwind Supply |
-| `buyer` | partner | Dana Reyes, Acme Retail |
-| `carrier` | partner | Chris Vance, Pacific Freight |
-| `arbiter` | arbiter | Ari Lund, Meridian Arbitration |
-
-Log in as `supplier`, raise a dispute against Dana Reyes, and add an evidence note. Log in
-as `buyer` and add counter-evidence. Log in as `carrier`: the dispute isn't in the list,
-and opening its URL gives a 404 rather than a 403, so an uninvolved partner can't even
-confirm it exists. Log in as `arbiter` and record a ruling; the dispute moves to `RESOLVED`
-and stops accepting evidence.
-
-A dispute goes `OPEN` once and `RESOLVED` once. Only an arbiter can close it, and nothing
-can be added afterwards.
-
-Passwords use `scrypt` from `node:crypto` and are compared with `timingSafeEqual`, so a
-wrong password and an unknown username take the same time to reject.
+- **Event envelope.** Each event is serialised as
+  `{v, ledger, id, type, disputeId, actorId, occurredAt, keyId, payload}`. The payload has a
+  fixed set of fields per event type, in a fixed order, and the stored bytes must be exactly
+  that canonical JSON, so nothing can hide in an extra field.
+- **Hash.** `hash = HMAC-SHA256(LEDGER_KEY, "dl.event.v1\n" + prevHash + "\n" + envelope)`.
+  The first event's `prevHash` is a SHA-256 of a random `ledgerId` made when the database is
+  created, so two databases never share a chain. Event ids must run 1, 2, 3 with no gaps.
+- **One global chain** across all disputes. Simpler to verify and it orders everything, at
+  the cost that every write waits on the one before it (fine for SQLite anyway).
+- **Same transaction.** Each raise, evidence note and ruling checks its rules, writes its
+  row and appends its event inside one `BEGIN IMMEDIATE` transaction, so the ledger can't
+  drift from the data and two arbiters can't both resolve a dispute.
+- **Reconciliation.** The check replays the chain, then compares every event with its row,
+  then looks for rows with no event, all in one read transaction
+  (`src/ledger/reconcile.ts`).
+- **Roles.** Partners see and add evidence to disputes they are a party to (others get a
+  404, not a 403). Only the arbiter records rulings and runs the ledger check, because the
+  check reads every dispute.
 
 ## Running it
 
@@ -86,48 +101,68 @@ Needs Node.js 22 or newer.
 ./scripts/start.sh
 ```
 
-That generates a `LEDGER_KEY` into `.env` the first time, installs dependencies if needed,
-seeds the database, and starts the server at http://localhost:3000. To do it by hand:
+That generates a `LEDGER_KEY` into `.env` the first time, installs dependencies, builds to
+`dist/`, seeds the database if there isn't one, and starts the server at
+http://localhost:3000.
 
-```bash
-npm install
-cp .env.example .env    # then set LEDGER_KEY to any long random string
-npm run seed            # 4 users, 2 disputes
-npm run dev
-npm test
-```
+![A dispute as the arbiter sees it: evidence from both sides and its ledger events](docs/dispute.png)
 
-`npm run reset` wipes and reseeds.
+Seeded accounts, password `password123` for all of them (demo only):
 
-TypeScript runs directly through `tsx` with no build step, and the frontend is plain HTML,
-CSS and ES modules, so there's no bundler either.
+| user | role | acting as |
+|---|---|---|
+| `supplier` | partner | Sam Ortiz, Northwind Supply |
+| `buyer` | partner | Dana Reyes, Acme Retail |
+| `carrier` | partner | Chris Vance, Pacific Freight |
+| `arbiter` | arbiter | Ari Lund, Meridian Arbitration |
+
+Evidence is text notes only; there are no file uploads.
+
+**Configuration** (in `.env`):
+
+| Variable | Default | |
+|---|---|---|
+| `PORT` | `3000` | |
+| `DB_PATH` | `./dispute.db` | |
+| `LEDGER_KEY` | none | Required, at least 32 characters. `start.sh` generates one. Changing it makes every existing event fail the check. |
+| `DEMO_RESEED` | unset | `npm run seed` refuses to replace an existing database unless this is `1`. |
+
+A database from an older version of the app is refused at startup with
+"... was made by an older version: delete it and run npm run seed". There are no
+migrations.
+
+**Deploying.** `render.yaml` runs it on Render's free plan (New → Blueprint → this repo). It
+builds to compiled JS, Render generates `LEDGER_KEY`, the health check is `/api/health`, and
+`DEMO_RESEED=1` is set because the free plan has no persistent disk.
 
 ```
 src/
-  domain.ts     dispute rules and error types, no I/O
-  audit.ts      hash chain and integrity verification
-  auth.ts       scrypt hashing, session tokens
-  db.ts         SQLite schema and indices
-  disputes.ts   queries and dispute operations
-  routes.ts     endpoints and Zod validation
-  app.ts        builds the Express app (exported so tests can drive it)
-  main.ts       starts the server, handles shutdown
-  seed.ts       demo users and disputes
-public/         single-page frontend
-tests/          domain rules and API tests
+  ledger/chain.ts      what an event is, how it is hashed, how the chain is checked
+  ledger/reconcile.ts  the chain against the rows, and rows with no event
+  disputes.ts          raise / add evidence / resolve, each in one transaction
+  format.ts            the JSON the API returns
+  domain.ts            dispute rules and error types, no I/O
+  auth.ts              scrypt passwords, hashed session tokens
+  db.ts                schema and the version check
+  routes.ts            endpoints, Zod validation, login rate limit
+  app.ts, main.ts      Express setup and startup
+  seed.ts, verify.ts   demo data and the offline check
+public/                plain HTML, CSS and ES modules
 ```
 
-## Deploying
+## Tests
 
-`render.yaml` runs it on Render's free plan: New → Blueprint → this repo. Render generates
-`LEDGER_KEY`, and because the free plan wipes the disk on every restart, the demo reseeds
-itself each time it starts.
+```bash
+npm test
+```
 
-## Still missing
-
-Evidence is text notes only. The walkthrough talks about photos of water ingress, but
-there's no file upload, so you describe the photo rather than attach it, which is the main
-thing I'd add next.
+70 Vitest tests in 8 files: the ledger functions, a tamper matrix of 10 attacks that each
+assert their reason (the eight in the table above, a lone-surrogate string that is rejected
+with 400 before it can poison the chain, and tail truncation, which is asserted to pass as
+the known limit), the schema check and seed guard, the `verify` exit
+codes, and the API (auth and rate limiting, the dispute rules, JSON errors, the arbiter-only
+check, and two connections racing to resolve the same dispute). CI also builds and starts
+`dist/main.js`.
 
 ## License
 
