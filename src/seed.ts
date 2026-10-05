@@ -2,21 +2,25 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { createDb } from './db.js';
 import { hashPassword } from './auth.js';
 import { raiseDispute, addEvidence, resolveDispute } from './disputes.js';
-import { verifyLedgerIntegrity } from './audit.js';
+import { verifyLedgerIntegrity } from './ledger/reconcile.js';
+import { DB_PATH, getLedgerKey } from './config.js';
 
-const dbPath = process.env.DB_PATH || './dispute.db';
+getLedgerKey();
 
-if (existsSync(dbPath)) {
-  unlinkSync(dbPath);
-}
-if (existsSync(`${dbPath}-wal`)) {
-  unlinkSync(`${dbPath}-wal`);
-}
-if (existsSync(`${dbPath}-shm`)) {
-  unlinkSync(`${dbPath}-shm`);
+// Never wipe a database by accident. Render sets DEMO_RESEED=1 because its disk is wiped anyway.
+if (existsSync(DB_PATH)) {
+  if (process.env.DEMO_RESEED !== '1') {
+    console.error(`${DB_PATH} already exists. Delete it first, or set DEMO_RESEED=1 to replace it.`);
+    process.exit(1);
+  }
+  for (const file of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
+    if (existsSync(file)) {
+      unlinkSync(file);
+    }
+  }
 }
 
-const db = createDb(dbPath);
+const db = createDb(DB_PATH);
 
 const defaultPassword = 'password123';
 const passwordHash = hashPassword(defaultPassword);
@@ -125,12 +129,10 @@ resolveDispute(
 const integrity = verifyLedgerIntegrity(db);
 
 console.log('---------------------------------------------------------');
-console.log(`Database seeded at: ${dbPath}`);
+console.log(`Database seeded at: ${DB_PATH}`);
 const integrityMsg = integrity.ok
   ? `OK (${integrity.eventsChecked} events verified)`
-  : integrity.firstBadEventId === null
-    ? 'FAILED (row with no ledger event)'
-    : `FAILED (tampered at event #${integrity.firstBadEventId})`;
+  : `FAILED (${integrity.reason}: ${integrity.detail})`;
 console.log(`Ledger Integrity: ${integrityMsg}`);
 console.log('---------------------------------------------------------');
 console.log('Seeded Users (Password: password123):');
