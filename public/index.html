@@ -4,48 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dispute Ledger</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230284c7'/%3E%3Ctext x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ED%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230369a1'/%3E%3Ctext x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ED%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
-    <!-- Header -->
     <header id="app-header" class="hidden">
       <div class="header-left">
-        <h1 class="logo" id="nav-home">Dispute Ledger</h1>
+        <h1 class="logo"><button type="button" id="nav-home" class="logo-btn">Dispute Ledger</button></h1>
       </div>
       <div class="header-right">
         <span id="user-info" class="user-badge"></span>
-        <button id="btn-check-integrity" class="btn btn-secondary">Check Ledger Integrity</button>
+        <button id="btn-check-integrity" class="btn btn-secondary hidden">Verify ledger</button>
         <button id="btn-logout" class="btn btn-outline">Log out</button>
       </div>
     </header>
 
+    <!-- Result of the last ledger check; stays until the next check -->
+    <section id="integrity-banner" class="integrity-banner hidden" aria-label="Ledger check"></section>
+
     <main class="container">
-      <!-- Error & Notice Messages -->
-      <div id="alert-container" class="alert-container"></div>
+      <div id="alert-container" class="alert-container" role="status" aria-live="polite"></div>
 
-      <!-- Integrity Modal -->
-      <div id="integrity-modal" class="modal hidden">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3>Ledger check</h3>
-            <button class="close-btn" id="btn-close-integrity">&times;</button>
-          </div>
-          <div class="modal-body" id="integrity-result">
-            <p>Checking the ledger...</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-secondary" id="btn-dismiss-integrity">Close</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- View: Login -->
       <section id="view-login" class="view">
         <div class="card login-card">
+          <h1>Dispute Ledger</h1>
+          <p class="subtitle">Shared case files for supply chain disputes, with a tamper-evident audit log that names the first record changed behind its back.</p>
           <h2>Sign in</h2>
-          <p class="subtitle">Shared case files for supply chain disputes, with a history nobody can quietly edit.</p>
 
           <form id="form-login">
             <div class="form-group">
@@ -71,60 +56,51 @@
         </div>
       </section>
 
-      <!-- View: Disputes List -->
       <section id="view-list" class="view hidden">
         <div class="view-header">
           <div class="view-title">
             <h2>Disputes</h2>
             <p class="subtitle" id="list-subtitle">Disputes visible to your account</p>
+            <p class="role-line" id="role-line"></p>
           </div>
           <div class="view-actions">
-            <div class="filter-group">
-              <button class="filter-btn active" data-status="">All</button>
-              <button class="filter-btn" data-status="OPEN">Open</button>
-              <button class="filter-btn" data-status="RESOLVED">Resolved</button>
-            </div>
             <button id="btn-open-raise-modal" class="btn btn-primary hidden">+ Raise Dispute</button>
           </div>
         </div>
 
-        <!-- Raise Dispute Modal -->
-        <div id="raise-modal" class="modal hidden">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h3>Raise a dispute</h3>
-              <button class="close-btn" id="btn-close-raise">&times;</button>
-            </div>
-            <form id="form-raise-dispute">
-              <div class="modal-body">
-                <div class="form-group">
-                  <label for="input-order-ref">Order Reference</label>
-                  <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="[A-Za-z0-9_.\/\-]+" maxlength="100">
-                  <small>Letters, numbers and - _ / . only</small>
-                </div>
-                <div class="form-group">
-                  <label for="select-respondent">Respondent</label>
-                  <select id="select-respondent" required>
-                    <option value="">Select respondent...</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="input-description">What happened</label>
-                  <textarea id="input-description" required rows="4" maxlength="2000" placeholder="e.g. 5 of 40 pallets arrived water-damaged"></textarea>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline" id="btn-cancel-raise">Cancel</button>
-                <button type="submit" class="btn btn-primary">Raise Dispute</button>
-              </div>
-            </form>
+        <dialog id="raise-modal" class="modal-content" aria-labelledby="raise-title">
+          <div class="modal-header">
+            <h2 id="raise-title">Raise a dispute</h2>
+            <button class="close-btn" id="btn-close-raise" aria-label="Close">&times;</button>
           </div>
-        </div>
+          <form id="form-raise-dispute">
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="input-order-ref">Order Reference</label>
+                <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="[A-Za-z0-9_.\/\-]+" maxlength="100">
+                <small>Letters, numbers and - _ / . only</small>
+              </div>
+              <div class="form-group">
+                <label for="select-respondent">Respondent</label>
+                <select id="select-respondent" required>
+                  <option value="">Select respondent...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="input-description">What happened</label>
+                <textarea id="input-description" required rows="4" maxlength="2000" placeholder="e.g. 5 of 40 pallets arrived water-damaged"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline" id="btn-cancel-raise">Cancel</button>
+              <button type="submit" class="btn btn-primary">Raise Dispute</button>
+            </div>
+          </form>
+        </dialog>
 
         <div id="disputes-list" class="disputes-grid"></div>
       </section>
 
-      <!-- View: Dispute Detail -->
       <section id="view-detail" class="view hidden">
         <div class="view-header">
           <button id="btn-back-to-list" class="btn btn-sm btn-outline">&larr; Back to Disputes</button>
@@ -135,6 +111,6 @@
     </main>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
