@@ -1,6 +1,5 @@
 export type UserRole = 'partner' | 'arbiter';
 export type DisputeStatus = 'OPEN' | 'RESOLVED';
-export type EventType = 'DISPUTE_RAISED' | 'EVIDENCE_ADDED' | 'DISPUTE_RESOLVED';
 
 export class DomainError extends Error {
   constructor(
@@ -49,12 +48,8 @@ export class DisputeNotOpenError extends DomainError {
   }
 }
 
-export function canUserRaiseDispute(role: UserRole): boolean {
-  return role === 'partner';
-}
-
 export function assertUserCanRaiseDispute(role: UserRole): void {
-  if (!canUserRaiseDispute(role)) {
+  if (role !== 'partner') {
     throw new ForbiddenError('Only partners may raise a dispute.');
   }
 }
@@ -83,22 +78,14 @@ export function canUserResolveDispute(user: { id: string; role: UserRole }): boo
   return user.role === 'arbiter';
 }
 
-export function canAddEvidence(status: DisputeStatus): boolean {
-  return status === 'OPEN';
-}
-
 export function assertCanAddEvidence(status: DisputeStatus): void {
-  if (!canAddEvidence(status)) {
+  if (status !== 'OPEN') {
     throw new DisputeNotOpenError('Evidence cannot be added to a resolved dispute.');
   }
 }
 
-export function canResolveDispute(status: DisputeStatus): boolean {
-  return status === 'OPEN';
-}
-
 export function assertCanResolve(status: DisputeStatus): void {
-  if (!canResolveDispute(status)) {
+  if (status !== 'OPEN') {
     throw new DisputeNotOpenError('Dispute is already resolved.');
   }
 }
