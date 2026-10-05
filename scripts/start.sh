@@ -19,7 +19,10 @@ if [ ! -d node_modules ]; then
   npm install
 fi
 
-if [ ! -f dispute.db ]; then
+# tsc only takes a few seconds, so always build: dist/ is never stale
+npm run build
+
+if [ ! -f "${DB_PATH:-./dispute.db}" ]; then
   npm run seed
 fi
 

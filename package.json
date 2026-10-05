@@ -7,16 +7,19 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "tsx watch --env-file=.env src/main.ts",
-    "start": "tsx --env-file=.env src/main.ts",
-    "seed": "tsx --env-file=.env src/seed.ts",
-    "reset": "bash scripts/reset.sh",
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "seed": "tsx --env-file-if-exists=.env src/seed.ts",
+    "verify": "tsx --env-file-if-exists=.env src/verify.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

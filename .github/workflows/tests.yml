@@ -16,3 +16,13 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
+      - name: Smoke test the build
+        run: |
+          export LEDGER_KEY="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
+          export DB_PATH="$RUNNER_TEMP/smoke.db" PORT=3000
+          node dist/seed.js
+          node dist/main.js &
+          for i in $(seq 1 30); do curl -sf localhost:3000/api/health && break; sleep 1; done
+          curl -sf localhost:3000/api/health | grep -q '"status":"healthy"'
+          curl -sf localhost:3000/ | grep -q '<title>Dispute Ledger</title>'

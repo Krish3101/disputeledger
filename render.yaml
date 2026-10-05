@@ -5,12 +5,16 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm ci --include=dev
-    # The free plan wipes the disk on every restart, so the demo reseeds each time it starts.
-    startCommand: npx tsx src/seed.ts && npx tsx src/main.ts
-    healthCheckPath: /
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node dist/seed.js && node dist/main.js
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: NODE_ENV
+        value: "production"
       - key: LEDGER_KEY
         generateValue: true
+      # free plan has no persistent disk
+      - key: DEMO_RESEED
+        value: "1"
