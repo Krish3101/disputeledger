@@ -1,24 +1,51 @@
 # Dependencies
 node_modules/
 
-# SQLite databases
-*.db
-*.db-wal
-*.db-shm
-
-# Environment files
-.env
-.env.*
-!.env.example
-
 # Build & TS outputs
 dist/
 *.tsbuildinfo
 
-# Logs
-*.log
+# SQLite databases & temp files
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
 
-# OS & Editor
-.DS_Store
+# Environment files & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs & Package Manager Artifacts
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test Coverage
+coverage/
+.nyc_output/
+
+# IDE & Editors
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db

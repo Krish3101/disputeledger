@@ -159,7 +159,7 @@ assert their reason (the eight in the table above, a lone-surrogate string that 
 with 400 before it can poison the chain, and tail truncation, which is asserted to pass as
 the known limit), the schema check and seed guard, the `verify` exit
 codes, and the API (auth and rate limiting, the dispute rules, JSON errors, the arbiter-only
-check, and two connections racing to resolve the same dispute). CI also builds and starts
+check, and two connections racing to resolve the same dispute). Tests also verify building and starting
 `dist/main.js`.
 
 ## License
