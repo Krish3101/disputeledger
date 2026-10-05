@@ -1,10 +1,15 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
 import type { UserRow } from './db.js';
 import { InvalidCredentialsError, type UserRole } from './domain.js';
 
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+// Node's scrypt defaults, written out so they are visible
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
+
 const DUMMY_SALT = '0123456789abcdef0123456789abcdef';
-const DUMMY_HASH = scryptSync('dummy-password', DUMMY_SALT, 64).toString('hex');
+const DUMMY_HASH = scryptSync('dummy-password', DUMMY_SALT, SCRYPT_KEYLEN, SCRYPT_PARAMS).toString('hex');
 
 export interface AuthUser {
   id: string;
@@ -15,7 +20,7 @@ export interface AuthUser {
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
-  const derivedKey = scryptSync(password, salt, 64).toString('hex');
+  const derivedKey = scryptSync(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS).toString('hex');
   return `${salt}:${derivedKey}`;
 }
 
@@ -25,7 +30,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     return false;
   }
   const [salt, key] = parts;
-  const derivedKey = scryptSync(password, salt, 64).toString('hex');
+  const derivedKey = scryptSync(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS).toString('hex');
   const bufA = Buffer.from(derivedKey, 'hex');
   const bufB = Buffer.from(key, 'hex');
   if (bufA.length !== bufB.length) {
@@ -34,13 +39,24 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-export function createSession(db: Database, userId: string): { token: string; expiresAt: string } {
-  const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+export function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
-  db.prepare('INSERT INTO sessions (token, userId, expiresAt) VALUES (?, ?, ?)').run(
-    token,
+export function createSession(db: Database, userId: string): { token: string; expiresAt: string } {
+  const now = new Date().toISOString();
+  // Purge expired sessions on login
+  db.prepare('DELETE FROM sessions WHERE expiresAt <= ?').run(now);
+
+  const token = randomBytes(32).toString('hex');
+  const tokenHash = hashToken(token);
+  const createdAt = now;
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+
+  db.prepare('INSERT INTO sessions (tokenHash, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)').run(
+    tokenHash,
     userId,
+    createdAt,
     expiresAt
   );
 
@@ -48,18 +64,20 @@ export function createSession(db: Database, userId: string): { token: string; ex
 }
 
 export function deleteSession(db: Database, token: string): void {
-  db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  const tokenHash = hashToken(token);
+  db.prepare('DELETE FROM sessions WHERE tokenHash = ?').run(tokenHash);
 }
 
 export function getSessionUser(db: Database, token: string): AuthUser | null {
+  const tokenHash = hashToken(token);
   const row = db
     .prepare(
       `SELECT u.id, u.username, u.displayName, u.role, s.expiresAt
        FROM sessions s
        JOIN users u ON s.userId = u.id
-       WHERE s.token = ?`
+       WHERE s.tokenHash = ?`
     )
-    .get(token) as (Omit<UserRow, 'passwordHash'> & { expiresAt: string }) | undefined;
+    .get(tokenHash) as (Omit<UserRow, 'passwordHash'> & { expiresAt: string }) | undefined;
 
   if (!row) {
     return null;
@@ -67,7 +85,7 @@ export function getSessionUser(db: Database, token: string): AuthUser | null {
 
   const now = new Date().toISOString();
   if (row.expiresAt <= now) {
-    db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+    db.prepare('DELETE FROM sessions WHERE tokenHash = ?').run(tokenHash);
     return null;
   }
 

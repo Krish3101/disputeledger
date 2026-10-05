@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
 import type { AuthUser } from './auth.js';
-import { findDispute, type DisputeRow } from './db.js';
+import { getLedgerKey } from './config.js';
+import { findDispute, getLedgerId } from './db.js';
 import {
   assertCanAddEvidence,
   assertCanResolve,
@@ -9,161 +10,45 @@ import {
   canUserAddEvidence,
   canUserResolveDispute,
   canUserViewDispute,
+  DisputeNotOpenError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
-  type DisputeStatus,
 } from './domain.js';
 import {
-  computeEventHash,
-  GENESIS_PREV_HASH,
-  type EventPayload,
-  type StoredEventRow,
-  buildCanonicalPayload,
-} from './audit.js';
+  formatDispute,
+  formatDisputeList,
+  formatEvents,
+  type DisputeEvent,
+  type DisputeRepresentation,
+} from './format.js';
+import { buildCanonicalPayload, computeEventHash, getGenesisHash, type EventType } from './ledger/chain.js';
 
-export interface DisputeEvent {
-  id: number;
-  disputeId: string;
-  type: string;
-  actor: UserSummary;
-  payload: unknown;
-  occurredAt: string;
-  prevHash: string;
-  hash: string;
-}
-
-export interface UserSummary {
-  id: string;
-  displayName: string;
-}
-
-export interface EvidenceRepresentation {
-  id: string;
-  submittedBy: UserSummary;
-  notes: string;
-  createdAt: string;
-}
-
-export interface ResolutionRepresentation {
-  note: string;
-  by: UserSummary;
-  at: string;
-}
-
-export interface DisputeRepresentation {
-  id: string;
-  orderReference: string;
-  description: string;
-  status: DisputeStatus;
-  claimant: UserSummary;
-  respondent: UserSummary;
-  createdAt: string;
-  evidence?: EvidenceRepresentation[];
-  resolution: ResolutionRepresentation | null;
-}
+// Every write below runs in one IMMEDIATE transaction: the checks, the row and its ledger event
+// commit together or not at all, and no other connection can write in between.
 
 function appendEvent(
   db: Database,
   disputeId: string,
-  type: 'DISPUTE_RAISED' | 'EVIDENCE_ADDED' | 'DISPUTE_RESOLVED',
+  type: EventType,
   actorId: string,
   occurredAt: string,
-  rawPayload: EventPayload
+  rawPayload: Record<string, string>
 ): void {
-  const lastEvent = db
-    .prepare('SELECT hash FROM events ORDER BY id DESC LIMIT 1')
-    .get() as { hash: string } | undefined;
-
-  const prevHash = lastEvent ? lastEvent.hash : GENESIS_PREV_HASH;
-
-  const rowIdResult = db
-    .prepare('SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM events')
-    .get() as { nextId: number };
-  const nextId = rowIdResult.nextId;
+  const ledgerId = getLedgerId(db);
+  const last = db.prepare('SELECT id, hash FROM events ORDER BY id DESC LIMIT 1').get() as
+    | { id: number; hash: string }
+    | undefined;
+  const prevHash = last ? last.hash : getGenesisHash(ledgerId);
+  const id = last ? last.id + 1 : 1;
 
   const payload = buildCanonicalPayload(type, rawPayload);
-
-  const hash = computeEventHash(prevHash, {
-    id: nextId,
-    disputeId,
-    type,
-    actorId,
-    occurredAt,
-    payload,
-  });
+  const hash = computeEventHash(prevHash, { id, disputeId, type, actorId, occurredAt, payload }, getLedgerKey(), ledgerId);
 
   db.prepare(
     `INSERT INTO events (id, disputeId, type, actorId, payload, occurredAt, prevHash, hash)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(nextId, disputeId, type, actorId, JSON.stringify(payload), occurredAt, prevHash, hash);
-}
-
-function formatDispute(
-  db: Database,
-  dispute: DisputeRow,
-  includeEvidence: boolean
-): DisputeRepresentation {
-  const claimant = db
-    .prepare('SELECT id, displayName FROM users WHERE id = ?')
-    .get(dispute.claimantId) as UserSummary;
-
-  const respondent = db
-    .prepare('SELECT id, displayName FROM users WHERE id = ?')
-    .get(dispute.respondentId) as UserSummary;
-
-  let resolution: ResolutionRepresentation | null = null;
-  if (dispute.status === 'RESOLVED' && dispute.resolvedById) {
-    const resolver = db
-      .prepare('SELECT id, displayName FROM users WHERE id = ?')
-      .get(dispute.resolvedById) as UserSummary;
-    resolution = {
-      note: dispute.resolutionNote as string,
-      by: resolver,
-      at: dispute.resolvedAt as string,
-    };
-  }
-
-  const result: DisputeRepresentation = {
-    id: dispute.id,
-    orderReference: dispute.orderReference,
-    description: dispute.description,
-    status: dispute.status,
-    claimant,
-    respondent,
-    createdAt: dispute.createdAt,
-    resolution,
-  };
-
-  if (includeEvidence) {
-    const evidenceRows = db
-      .prepare(
-        `SELECT e.id, e.submittedById, e.notes, e.createdAt, u.displayName
-         FROM evidence e
-         JOIN users u ON e.submittedById = u.id
-         WHERE e.disputeId = ?
-         ORDER BY e.createdAt ASC`
-      )
-      .all(dispute.id) as {
-      id: string;
-      submittedById: string;
-      notes: string;
-      createdAt: string;
-      displayName: string;
-    }[];
-
-    result.evidence = evidenceRows.map((row) => ({
-      id: row.id,
-      submittedBy: {
-        id: row.submittedById,
-        displayName: row.displayName,
-      },
-      notes: row.notes,
-      createdAt: row.createdAt,
-    }));
-  }
-
-  return result;
+  ).run(id, disputeId, type, actorId, JSON.stringify(payload), occurredAt, prevHash, hash);
 }
 
 export function raiseDispute(
@@ -172,23 +57,21 @@ export function raiseDispute(
   input: { orderReference: string; description: string; respondentId: string }
 ): DisputeRepresentation {
   assertUserCanRaiseDispute(user.role);
-
   if (input.respondentId === user.id) {
     throw new ValidationError('Respondent cannot be the claimant.');
-  }
-
-  const respondent = db
-    .prepare('SELECT id, role FROM users WHERE id = ?')
-    .get(input.respondentId) as { id: string; role: string } | undefined;
-
-  if (!respondent || respondent.role !== 'partner') {
-    throw new ValidationError('Respondent must be an existing partner user.');
   }
 
   const disputeId = randomUUID();
   const createdAt = new Date().toISOString();
 
-  const insertDisputeTx = db.transaction(() => {
+  db.transaction(() => {
+    const respondent = db.prepare('SELECT role FROM users WHERE id = ?').get(input.respondentId) as
+      | { role: string }
+      | undefined;
+    if (!respondent || respondent.role !== 'partner') {
+      throw new ValidationError('Respondent must be an existing partner user.');
+    }
+
     db.prepare(
       `INSERT INTO disputes (id, orderReference, description, status, claimantId, respondentId, createdAt)
        VALUES (?, ?, ?, 'OPEN', ?, ?, ?)`
@@ -199,52 +82,9 @@ export function raiseDispute(
       description: input.description,
       respondentId: input.respondentId,
     });
-  });
+  }).immediate();
 
-  insertDisputeTx();
-
-  return formatDispute(db, findDispute(db, disputeId) as DisputeRow, true);
-}
-
-export function getDispute(
-  db: Database,
-  user: AuthUser,
-  disputeId: string
-): DisputeRepresentation {
-  const dispute = findDispute(db, disputeId);
-  if (!dispute) {
-    throw new NotFoundError();
-  }
-
-  if (!canUserViewDispute(user, dispute)) {
-    throw new NotFoundError();
-  }
-
-  return formatDispute(db, dispute, true);
-}
-
-export function listDisputes(
-  db: Database,
-  user: AuthUser,
-  statusFilter?: string
-): DisputeRepresentation[] {
-  let query = 'SELECT * FROM disputes WHERE 1=1';
-  const params: string[] = [];
-
-  if (user.role === 'partner') {
-    query += ' AND (claimantId = ? OR respondentId = ?)';
-    params.push(user.id, user.id);
-  }
-
-  if (statusFilter) {
-    query += ' AND status = ?';
-    params.push(statusFilter);
-  }
-
-  query += ' ORDER BY createdAt DESC';
-
-  const rows = db.prepare(query).all(...params) as DisputeRow[];
-  return rows.map((row) => formatDispute(db, row, false));
+  return formatDispute(db, disputeId);
 }
 
 export function addEvidence(
@@ -253,40 +93,31 @@ export function addEvidence(
   disputeId: string,
   input: { notes: string }
 ): DisputeRepresentation {
-  const dispute = findDispute(db, disputeId);
-  if (!dispute) {
-    throw new NotFoundError();
-  }
-
-  if (!canUserAddEvidence(user, dispute)) {
-    // Someone who can see the dispute (the arbiter) is told no. Anyone else gets a 404,
-    // so they can't learn that it exists.
-    if (canUserViewDispute(user, dispute)) {
-      throw new ForbiddenError('Only the two parties can add evidence.');
-    }
-    throw new NotFoundError();
-  }
-
-  assertCanAddEvidence(dispute.status);
-
   const evidenceId = randomUUID();
   const createdAt = new Date().toISOString();
 
-  const addEvidenceTx = db.transaction(() => {
+  db.transaction(() => {
+    const dispute = findDispute(db, disputeId);
+    if (!dispute) {
+      throw new NotFoundError();
+    }
+    if (!canUserAddEvidence(user, dispute)) {
+      if (canUserViewDispute(user, dispute)) {
+        throw new ForbiddenError('Only the two parties can add evidence.');
+      }
+      throw new NotFoundError();
+    }
+    assertCanAddEvidence(dispute.status);
+
     db.prepare(
       `INSERT INTO evidence (id, disputeId, submittedById, notes, createdAt)
        VALUES (?, ?, ?, ?, ?)`
     ).run(evidenceId, disputeId, user.id, input.notes, createdAt);
 
-    appendEvent(db, disputeId, 'EVIDENCE_ADDED', user.id, createdAt, {
-      evidenceId,
-      notes: input.notes,
-    });
-  });
+    appendEvent(db, disputeId, 'EVIDENCE_ADDED', user.id, createdAt, { evidenceId, notes: input.notes });
+  }).immediate();
 
-  addEvidenceTx();
-
-  return formatDispute(db, findDispute(db, disputeId) as DisputeRow, true);
+  return formatDispute(db, disputeId);
 }
 
 export function resolveDispute(
@@ -298,68 +129,51 @@ export function resolveDispute(
   if (!canUserResolveDispute(user)) {
     throw new ForbiddenError('Only an arbiter can resolve a dispute.');
   }
-
-  const dispute = findDispute(db, disputeId);
-  if (!dispute) {
-    throw new NotFoundError();
-  }
-
-  assertCanResolve(dispute.status);
-
   const resolvedAt = new Date().toISOString();
 
-  const resolveTx = db.transaction(() => {
-    db.prepare(
-      `UPDATE disputes
-       SET status = 'RESOLVED', resolutionNote = ?, resolvedById = ?, resolvedAt = ?
-       WHERE id = ? AND status = 'OPEN'`
-    ).run(input.resolutionNote, user.id, resolvedAt, disputeId);
+  db.transaction(() => {
+    const dispute = findDispute(db, disputeId);
+    if (!dispute) {
+      throw new NotFoundError();
+    }
+    assertCanResolve(dispute.status);
 
-    appendEvent(db, disputeId, 'DISPUTE_RESOLVED', user.id, resolvedAt, {
-      resolutionNote: input.resolutionNote,
-    });
-  });
+    const update = db
+      .prepare(
+        `UPDATE disputes
+         SET status = 'RESOLVED', resolutionNote = ?, resolvedById = ?, resolvedAt = ?
+         WHERE id = ? AND status = 'OPEN'`
+      )
+      .run(input.resolutionNote, user.id, resolvedAt, disputeId);
+    if (update.changes !== 1) {
+      throw new DisputeNotOpenError('Dispute is already resolved.');
+    }
 
-  resolveTx();
+    appendEvent(db, disputeId, 'DISPUTE_RESOLVED', user.id, resolvedAt, { resolutionNote: input.resolutionNote });
+  }).immediate();
 
-  return formatDispute(db, findDispute(db, disputeId) as DisputeRow, true);
+  return formatDispute(db, disputeId);
 }
 
-export function getDisputeEvents(
-  db: Database,
-  user: AuthUser,
-  disputeId: string
-): DisputeEvent[] {
+function findVisibleDispute(db: Database, user: AuthUser, disputeId: string) {
   const dispute = findDispute(db, disputeId);
-  if (!dispute) {
+  // A dispute the user can't see looks the same as one that doesn't exist
+  if (!dispute || !canUserViewDispute(user, dispute)) {
     throw new NotFoundError();
   }
+  return dispute;
+}
 
-  if (!canUserViewDispute(user, dispute)) {
-    throw new NotFoundError();
-  }
+export function getDispute(db: Database, user: AuthUser, disputeId: string): DisputeRepresentation {
+  findVisibleDispute(db, user, disputeId);
+  return formatDispute(db, disputeId);
+}
 
-  const events = db
-    .prepare(
-      `SELECT e.id, e.disputeId, e.type, e.actorId, e.payload, e.occurredAt, e.prevHash, e.hash, u.displayName
-       FROM events e
-       JOIN users u ON e.actorId = u.id
-       WHERE e.disputeId = ?
-       ORDER BY e.id ASC`
-    )
-    .all(disputeId) as (StoredEventRow & { displayName: string })[];
+export function listDisputes(db: Database, user: AuthUser): DisputeRepresentation[] {
+  return formatDisputeList(db, user);
+}
 
-  return events.map((ev) => ({
-    id: ev.id,
-    disputeId: ev.disputeId,
-    type: ev.type,
-    actor: {
-      id: ev.actorId,
-      displayName: ev.displayName,
-    },
-    payload: JSON.parse(ev.payload),
-    occurredAt: ev.occurredAt,
-    prevHash: ev.prevHash,
-    hash: ev.hash,
-  }));
+export function getDisputeEvents(db: Database, user: AuthUser, disputeId: string): DisputeEvent[] {
+  findVisibleDispute(db, user, disputeId);
+  return formatEvents(db, disputeId);
 }

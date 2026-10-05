@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z, ZodError } from 'zod';
 import type { Database } from 'better-sqlite3';
-import { DomainError, UnauthenticatedError } from './domain.js';
+import { DomainError, ForbiddenError, UnauthenticatedError } from './domain.js';
 import { deleteSession, getSessionUser, loginUser, type AuthUser } from './auth.js';
 import {
   addEvidence,
@@ -11,11 +12,14 @@ import {
   raiseDispute,
   resolveDispute,
 } from './disputes.js';
-import { verifyLedgerIntegrity } from './audit.js';
+import { verifyLedgerIntegrity } from './ledger/reconcile.js';
+import { getLedgerKey } from './config.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthUser;
 }
+
+const wellFormedUnicode = (s: string) => typeof s.isWellFormed === 'function' ? s.isWellFormed() : true;
 
 const loginSchema = z.object({
   username: z
@@ -23,8 +27,13 @@ const loginSchema = z.object({
     .trim()
     .min(3)
     .max(50)
-    .regex(/^[a-z0-9_.-]+$/, 'Username must be lowercase alphanumeric with _, ., or -'),
-  password: z.string().min(8).max(200),
+    .regex(/^[a-z0-9_.-]+$/, 'Username must be lowercase alphanumeric with _, ., or -')
+    .refine(wellFormedUnicode, 'invalid Unicode'),
+  password: z
+    .string()
+    .min(8)
+    .max(200)
+    .refine(wellFormedUnicode, 'invalid Unicode'),
 });
 
 const raiseDisputeSchema = z.object({
@@ -33,25 +42,59 @@ const raiseDisputeSchema = z.object({
     .trim()
     .min(1)
     .max(100)
-    .regex(/^[A-Za-z0-9_\-/.]+$/, 'Order reference contains invalid characters'),
-  description: z.string().trim().min(1).max(2000),
-  respondentId: z.string().trim().min(1),
+    .regex(/^[A-Za-z0-9_\-/.]+$/, 'Order reference contains invalid characters')
+    .refine(wellFormedUnicode, 'invalid Unicode'),
+  description: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .refine(wellFormedUnicode, 'invalid Unicode'),
+  respondentId: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(wellFormedUnicode, 'invalid Unicode'),
 });
 
 const addEvidenceSchema = z.object({
-  notes: z.string().trim().min(1).max(2000),
+  notes: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .refine(wellFormedUnicode, 'invalid Unicode'),
 });
 
 const resolveDisputeSchema = z.object({
-  resolutionNote: z.string().trim().min(1).max(2000),
-});
-
-const listQuerySchema = z.object({
-  status: z.enum(['OPEN', 'RESOLVED']).optional(),
+  resolutionNote: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .refine(wellFormedUnicode, 'invalid Unicode'),
 });
 
 export function createRouter(db: Database): Router {
   const router = Router();
+
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    // Counted per IP and username, so one user's typos don't lock out everyone behind the same NAT
+    keyGenerator: (req) => {
+      const username = typeof req.body?.username === 'string' ? req.body.username.trim().toLowerCase() : '';
+      return `${ipKeyGenerator(req.ip ?? '')}:${username}`;
+    },
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: {
+      error: {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Too many login attempts. Please try again later.',
+      },
+    },
+  });
 
   function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
@@ -70,15 +113,35 @@ export function createRouter(db: Database): Router {
     next();
   }
 
-  // Public routes
-  router.post('/login', (req: Request, res: Response, next: NextFunction) => {
+  // Public unauthenticated health check
+  router.get('/health', (_req: Request, res: Response) => {
+    let dbOk = false;
     try {
-      const { username, password } = loginSchema.parse(req.body);
-      const result = loginUser(db, username, password);
-      res.json(result);
-    } catch (err) {
-      next(err);
+      db.prepare('SELECT 1').get();
+      dbOk = true;
+    } catch {
+      dbOk = false;
     }
+
+    let ledgerKeyOk = false;
+    try {
+      ledgerKeyOk = !!getLedgerKey();
+    } catch {
+      ledgerKeyOk = false;
+    }
+
+    res.json({
+      status: dbOk && ledgerKeyOk ? 'healthy' : 'degraded',
+      db: dbOk,
+      ledgerKey: ledgerKeyOk,
+    });
+  });
+
+  // Public login route with rate limiting
+  router.post('/login', loginLimiter, (req: Request, res: Response) => {
+    const { username, password } = loginSchema.parse(req.body);
+    const result = loginUser(db, username, password);
+    res.json(result);
   });
 
   // Protected routes
@@ -95,82 +158,53 @@ export function createRouter(db: Database): Router {
     res.json({ user: req.user });
   });
 
-  router.get('/partners', requireAuth, (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const items = db
-        .prepare('SELECT id, username, displayName, role FROM users WHERE role = ? ORDER BY displayName ASC')
-        .all('partner');
-      res.json({ items });
-    } catch (err) {
-      next(err);
-    }
+  router.get('/partners', requireAuth, (_req: AuthenticatedRequest, res: Response) => {
+    // Usernames are left out so partners can't harvest login names
+    const items = db
+      .prepare('SELECT id, displayName, role FROM users WHERE role = ? ORDER BY displayName ASC')
+      .all('partner');
+    res.json({ items });
   });
 
-  router.post('/disputes', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const data = raiseDisputeSchema.parse(req.body);
-      const dispute = raiseDispute(db, req.user!, data);
-      res.status(201).json(dispute);
-    } catch (err) {
-      next(err);
-    }
+  router.post('/disputes', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const data = raiseDisputeSchema.parse(req.body);
+    const dispute = raiseDispute(db, req.user!, data);
+    res.status(201).json(dispute);
   });
 
-  router.get('/disputes', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const query = listQuerySchema.parse(req.query);
-      const items = listDisputes(db, req.user!, query.status);
-      res.json({ items });
-    } catch (err) {
-      next(err);
-    }
+  router.get('/disputes', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const items = listDisputes(db, req.user!);
+    res.json({ items });
   });
 
-  router.get('/disputes/:id', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const dispute = getDispute(db, req.user!, req.params.id);
-      res.json(dispute);
-    } catch (err) {
-      next(err);
-    }
+  router.get('/disputes/:id', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const dispute = getDispute(db, req.user!, req.params.id);
+    res.json(dispute);
   });
 
-  router.post('/disputes/:id/evidence', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const data = addEvidenceSchema.parse(req.body);
-      const dispute = addEvidence(db, req.user!, req.params.id, data);
-      res.status(201).json(dispute);
-    } catch (err) {
-      next(err);
-    }
+  router.post('/disputes/:id/evidence', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const data = addEvidenceSchema.parse(req.body);
+    const dispute = addEvidence(db, req.user!, req.params.id, data);
+    res.status(201).json(dispute);
   });
 
-  router.post('/disputes/:id/resolution', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const data = resolveDisputeSchema.parse(req.body);
-      const dispute = resolveDispute(db, req.user!, req.params.id, data);
-      res.json(dispute);
-    } catch (err) {
-      next(err);
-    }
+  router.post('/disputes/:id/resolution', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const data = resolveDisputeSchema.parse(req.body);
+    const dispute = resolveDispute(db, req.user!, req.params.id, data);
+    res.json(dispute);
   });
 
-  router.get('/disputes/:id/events', requireAuth, (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const items = getDisputeEvents(db, req.user!, req.params.id);
-      res.json({ items });
-    } catch (err) {
-      next(err);
-    }
+  router.get('/disputes/:id/events', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    const items = getDisputeEvents(db, req.user!, req.params.id);
+    res.json({ items });
   });
 
-  router.get('/integrity', requireAuth, (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const result = verifyLedgerIntegrity(db);
-      res.json(result);
-    } catch (err) {
-      next(err);
+  // Only the arbiter can run the full check: it reads every dispute, not just the caller's own
+  router.get('/integrity', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+    if (req.user?.role !== 'arbiter') {
+      throw new ForbiddenError('Only the arbiter can verify the ledger.');
     }
+    res.json(verifyLedgerIntegrity(db));
   });
 
   // 404 handler for unmatched API routes
@@ -183,6 +217,7 @@ export function createRouter(db: Database): Router {
     });
   });
 
+  // API router error handler
   router.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof DomainError) {
       return res.status(err.statusCode).json({
@@ -205,14 +240,8 @@ export function createRouter(db: Database): Router {
       });
     }
 
-    // Default internal server error - never leak internal stack, paths, or SQL
-    console.error('Unhandled internal error:', err);
-    return res.status(500).json({
-      error: {
-        code: 'INTERNAL',
-        message: 'An internal server error occurred.',
-      },
-    });
+    // Pass to app-level error handler
+    _next(err);
   });
 
   return router;
