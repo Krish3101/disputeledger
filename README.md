@@ -1,7 +1,5 @@
 # Dispute Ledger
 
-[![tests](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml/badge.svg)](https://github.com/Krish3101/disputeledger/actions/workflows/tests.yml)
-
 A buyer, a supplier, a carrier and an arbiter share one case file per dispute (damaged
 pallets, a short shipment). Nobody, including whoever runs the database, should be able to
 quietly change that record afterwards.
