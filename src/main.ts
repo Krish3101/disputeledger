@@ -12,6 +12,10 @@ try {
   console.error(`Cannot start: ${(err as Error).message}`);
   process.exit(1);
 }
+if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
+  console.error(`Cannot start: PORT must be an integer from 0 to 65535 (got "${process.env.PORT}").`);
+  process.exit(1);
+}
 const app = createApp(db);
 
 const server = app.listen(PORT, () => {
@@ -29,6 +33,8 @@ function shutdown(signal: string): void {
     }
     process.exit(0);
   });
+  // Keep-alive sockets would otherwise hold close() open
+  server.closeIdleConnections();
 }
 
 process.on('SIGINT', () => shutdown('SIGINT'));

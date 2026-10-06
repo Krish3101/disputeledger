@@ -156,13 +156,13 @@ public/                plain HTML, CSS and ES modules
 npm test
 ```
 
-70 Vitest tests in 8 files: the ledger functions, a tamper matrix of 10 attacks that each
-assert their reason (the eight in the table above, a lone-surrogate string that is rejected
-with 400 before it can poison the chain, and tail truncation, which is asserted to pass as
-the known limit), the schema check and seed guard, the `verify` exit
-codes, and the API (auth and rate limiting, the dispute rules, JSON errors, the arbiter-only
-check, and two connections racing to resolve the same dispute). Tests also verify building and starting
-`dist/main.js`.
+76 Vitest tests in 8 files: the ledger functions, a tamper matrix of 11 cases that each
+assert their reason (nine are the attacks in the table above, with the orphan row tried for
+both evidence and disputes, plus a lone-surrogate string that is rejected with 400 before it can
+poison the chain, and tail truncation, which is asserted to pass as the known limit), the
+schema check and seed guard, the `verify` exit codes, and the API (auth and rate limiting, the
+dispute rules, JSON errors, the arbiter-only check, a clock stepping backwards, and two
+connections racing to resolve the same dispute).
 
 ## License
 

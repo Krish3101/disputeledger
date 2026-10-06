@@ -5,7 +5,12 @@ import { raiseDispute, addEvidence, resolveDispute } from './disputes.js';
 import { verifyLedgerIntegrity } from './ledger/reconcile.js';
 import { DB_PATH, getLedgerKey } from './config.js';
 
-getLedgerKey();
+try {
+  getLedgerKey();
+} catch (err) {
+  console.error(`Cannot seed: ${(err as Error).message}`);
+  process.exit(1);
+}
 
 // Never wipe a database by accident. Render sets DEMO_RESEED=1 because its disk is wiped anyway.
 if (existsSync(DB_PATH)) {

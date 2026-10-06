@@ -16,6 +16,11 @@ describe('authentication', () => {
     insertUsers(db);
   });
 
+  it('login ignores the case of the username', async () => {
+    const res = await request(app).post('/api/login').send({ username: ' Supplier ', password: PASSWORD }).expect(200);
+    expect(res.body.token).toBeTruthy();
+  });
+
   it('missing token returns 401 UNAUTHENTICATED', async () => {
     const res = await request(app).get('/api/disputes').expect(401);
     expect(res.body.error.code).toBe('UNAUTHENTICATED');

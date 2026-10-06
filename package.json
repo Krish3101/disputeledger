@@ -2,6 +2,12 @@
   "name": "disputeledger",
   "version": "1.0.0",
   "description": "Tamper-evident dispute case file ledger",
+  "license": "MIT",
+  "author": "Krish Kalya",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Krish3101/disputeledger.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

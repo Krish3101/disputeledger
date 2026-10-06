@@ -1,4 +1,3 @@
-// Dispute Ledger - Main Application Entrypoint
 import { api, getAuthToken, setAuthToken, getCurrentUser, setCurrentUser, logout } from './api.js';
 import { runIntegrityCheck, getLastCheck, clearIntegrity, setGoToEventHandler } from './integrity.js';
 import { showView, showAlert, renderHeader, renderDisputesList, renderDisputeDetail, escapeHtml } from './views.js';

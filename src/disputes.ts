@@ -27,6 +27,16 @@ import { buildCanonicalPayload, computeEventHash, getGenesisHash, type EventType
 // Every write below runs in one IMMEDIATE transaction: the checks, the row and its ledger event
 // commit together or not at all, and no other connection can write in between.
 
+// Never earlier than the newest event: a clock stepped backwards must not make the chain look
+// tampered with (the integrity check flags any decrease). Call inside the write transaction.
+function nextOccurredAt(db: Database): string {
+  const now = new Date().toISOString();
+  const last = db.prepare('SELECT occurredAt FROM events ORDER BY id DESC LIMIT 1').get() as
+    | { occurredAt: string }
+    | undefined;
+  return last && last.occurredAt > now ? last.occurredAt : now;
+}
+
 function appendEvent(
   db: Database,
   disputeId: string,
@@ -62,9 +72,9 @@ export function raiseDispute(
   }
 
   const disputeId = randomUUID();
-  const createdAt = new Date().toISOString();
 
   db.transaction(() => {
+    const createdAt = nextOccurredAt(db);
     const respondent = db.prepare('SELECT role FROM users WHERE id = ?').get(input.respondentId) as
       | { role: string }
       | undefined;
@@ -94,9 +104,9 @@ export function addEvidence(
   input: { notes: string }
 ): DisputeRepresentation {
   const evidenceId = randomUUID();
-  const createdAt = new Date().toISOString();
 
   db.transaction(() => {
+    const createdAt = nextOccurredAt(db);
     const dispute = findDispute(db, disputeId);
     if (!dispute) {
       throw new NotFoundError();
@@ -129,9 +139,8 @@ export function resolveDispute(
   if (!canUserResolveDispute(user)) {
     throw new ForbiddenError('Only an arbiter can resolve a dispute.');
   }
-  const resolvedAt = new Date().toISOString();
-
   db.transaction(() => {
+    const resolvedAt = nextOccurredAt(db);
     const dispute = findDispute(db, disputeId);
     if (!dispute) {
       throw new NotFoundError();

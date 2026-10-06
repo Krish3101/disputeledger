@@ -1,4 +1,5 @@
-export const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const rawPort = process.env.PORT;
+export const PORT = rawPort ? Number(rawPort) : 3000;
 export const DB_PATH = process.env.DB_PATH || './dispute.db';
 
 const MIN_LEDGER_KEY_LENGTH = 32;

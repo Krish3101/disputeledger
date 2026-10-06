@@ -32,7 +32,7 @@ export function createApp(db: Database, limits?: RateLimitOptions): Express {
 
   app.use('/api', createRouter(db, limits));
 
-  // App-level error handler for body-parser syntax errors, 413s, and uncaught errors
+  // Body-parser failures get specific JSON errors; everything else is reported without internals
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     if (err.type === 'entity.parse.failed') {
       return res.status(400).json({

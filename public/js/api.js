@@ -1,5 +1,3 @@
-// Dispute Ledger - API Module
-
 let authToken = localStorage.getItem('dl_token') || null;
 let currentUser = null;
 

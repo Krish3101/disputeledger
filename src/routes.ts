@@ -22,9 +22,11 @@ export interface AuthenticatedRequest extends Request {
 const wellFormedUnicode = (s: string) => typeof s.isWellFormed === 'function' ? s.isWellFormed() : true;
 
 const loginSchema = z.object({
+  // Lowercased first so "Supplier" logs in like "supplier"
   username: z
     .string()
     .trim()
+    .toLowerCase()
     .min(3)
     .max(50)
     .regex(/^[a-z0-9_.-]+$/, 'Username must be lowercase alphanumeric with _, ., or -')

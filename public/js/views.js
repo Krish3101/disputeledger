@@ -1,4 +1,3 @@
-// Dispute Ledger - Views Module
 import { getCurrentUser } from './api.js';
 
 export function escapeHtml(str) {
@@ -110,7 +109,7 @@ export function renderDisputeDetail(dispute, events, lastCheck, onAddEvidence, o
       <form id="form-add-evidence">
         <div class="form-group">
           <label for="input-evidence-notes" class="sr-only">Evidence notes</label>
-          <textarea id="input-evidence-notes" required rows="3" placeholder="Describe the photo, inspection report or delivery note"></textarea>
+          <textarea id="input-evidence-notes" required rows="3" maxlength="2000" placeholder="Describe the photo, inspection report or delivery note"></textarea>
         </div>
         <button type="submit" class="btn btn-primary btn-sm">Add Evidence</button>
       </form>
@@ -127,7 +126,7 @@ export function renderDisputeDetail(dispute, events, lastCheck, onAddEvidence, o
       <form id="form-resolve-dispute">
         <div class="form-group">
           <label for="input-resolution-note" class="sr-only">Ruling</label>
-          <textarea id="input-resolution-note" required rows="3" placeholder="Who is liable, and what was agreed"></textarea>
+          <textarea id="input-resolution-note" required rows="3" maxlength="2000" placeholder="Who is liable, and what was agreed"></textarea>
         </div>
         <button type="submit" class="btn btn-primary">Record ruling</button>
       </form>

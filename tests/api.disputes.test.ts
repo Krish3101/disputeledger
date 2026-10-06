@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import type { Database } from 'better-sqlite3';
 import { createDb } from '../src/db.js';
 import { createApp } from '../src/app.js';
-import { insertUsers, login, tmpDbPath } from './helpers.js';
+import { addEvidence, raiseDispute, resolveDispute } from '../src/disputes.js';
+import { verifyLedgerIntegrity } from '../src/ledger/reconcile.js';
+import { insertUsers, login, tmpDbPath, users } from './helpers.js';
 
 describe('disputes API', () => {
   let db: Database;
@@ -224,5 +226,37 @@ describe('disputes API', () => {
     expect(integrity.body.ok).toBe(true);
     dbA.close();
     dbB.close();
+  });
+});
+
+describe('a clock that steps backwards', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('keeps event times non-decreasing and the ledger verifiable', () => {
+    const db = createDb(':memory:');
+    insertUsers(db);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-01T12:00:00.000Z'));
+    const dispute = raiseDispute(db, users.sam, {
+      orderReference: 'PO-1',
+      description: 'Damaged pallets',
+      respondentId: users.dana.id,
+    });
+
+    vi.setSystemTime(new Date('2026-03-01T11:59:00.000Z'));
+    addEvidence(db, users.sam, dispute.id, { notes: 'Photos' });
+
+    vi.setSystemTime(new Date('2026-03-01T11:00:00.000Z'));
+    resolveDispute(db, users.ari, dispute.id, { resolutionNote: 'Carrier liable' });
+
+    const times = (db.prepare('SELECT occurredAt FROM events ORDER BY id').all() as { occurredAt: string }[]).map(
+      (e) => e.occurredAt
+    );
+    expect(times).toHaveLength(3);
+    expect([...times].sort()).toEqual(times);
+    expect(verifyLedgerIntegrity(db).ok).toBe(true);
   });
 });
