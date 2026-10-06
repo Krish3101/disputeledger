@@ -26,7 +26,7 @@ export interface StoredEventRow {
   hash: string;
 }
 
-export type IntegrityReason = 'CHAIN_BROKEN' | 'PAYLOAD_NOT_CANONICAL' | 'ROW_MISMATCH' | 'ORPHAN_ROW';
+export type IntegrityReason = 'CHAIN_BROKEN' | 'PAYLOAD_NOT_CANONICAL' | 'ROW_MISMATCH' | 'ORPHAN_ROW' | 'TIMESTAMP_REGRESSION';
 
 export interface Head {
   seq: number;
@@ -144,6 +144,11 @@ export function verifyChain(events: StoredEventRow[], key: string, ledgerId: str
     }
     if (event.hash !== computeEventHash(event.prevHash, event, key, ledgerId)) {
       return fail('CHAIN_BROKEN', `Event #${event.id} hash does not match its contents`);
+    }
+
+    // Timestamps are server-generated in write order, so equal is fine but going back is not
+    if (i > 0 && event.occurredAt < events[i - 1].occurredAt) {
+      return fail('TIMESTAMP_REGRESSION', `Event #${event.id} is dated before the event ahead of it`);
     }
     expectedPrevHash = event.hash;
   }

@@ -75,7 +75,12 @@ const resolveDisputeSchema = z.object({
     .refine(wellFormedUnicode, 'invalid Unicode'),
 });
 
-export function createRouter(db: Database): Router {
+export interface RateLimitOptions {
+  integrityPerMinute?: number;
+  writesPerMinute?: number;
+}
+
+export function createRouter(db: Database, limits: RateLimitOptions = {}): Router {
   const router = Router();
 
   const loginLimiter = rateLimit({
@@ -92,6 +97,36 @@ export function createRouter(db: Database): Router {
       error: {
         code: 'TOO_MANY_REQUESTS',
         message: 'Too many login attempts. Please try again later.',
+      },
+    },
+  });
+
+  // The integrity check replays the whole chain on the main thread, so it gets a tight per-IP cap
+  const integrityLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: limits.integrityPerMinute ?? 10,
+    keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: {
+      error: {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Too many integrity checks. Please try again later.',
+      },
+    },
+  });
+
+  // Runs after requireAuth, so writes are counted per user rather than per shared IP
+  const writeLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: limits.writesPerMinute ?? 60,
+    keyGenerator: (req) => (req as AuthenticatedRequest).user?.id ?? ipKeyGenerator(req.ip ?? ''),
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: {
+      error: {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Too many changes in a short time. Please try again later.',
       },
     },
   });
@@ -166,7 +201,7 @@ export function createRouter(db: Database): Router {
     res.json({ items });
   });
 
-  router.post('/disputes', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  router.post('/disputes', requireAuth, writeLimiter, (req: AuthenticatedRequest, res: Response) => {
     const data = raiseDisputeSchema.parse(req.body);
     const dispute = raiseDispute(db, req.user!, data);
     res.status(201).json(dispute);
@@ -182,13 +217,13 @@ export function createRouter(db: Database): Router {
     res.json(dispute);
   });
 
-  router.post('/disputes/:id/evidence', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  router.post('/disputes/:id/evidence', requireAuth, writeLimiter, (req: AuthenticatedRequest, res: Response) => {
     const data = addEvidenceSchema.parse(req.body);
     const dispute = addEvidence(db, req.user!, req.params.id, data);
     res.status(201).json(dispute);
   });
 
-  router.post('/disputes/:id/resolution', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  router.post('/disputes/:id/resolution', requireAuth, writeLimiter, (req: AuthenticatedRequest, res: Response) => {
     const data = resolveDisputeSchema.parse(req.body);
     const dispute = resolveDispute(db, req.user!, req.params.id, data);
     res.json(dispute);
@@ -200,7 +235,7 @@ export function createRouter(db: Database): Router {
   });
 
   // Only the arbiter can run the full check: it reads every dispute, not just the caller's own
-  router.get('/integrity', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+  router.get('/integrity', requireAuth, integrityLimiter, (req: AuthenticatedRequest, res: Response) => {
     if (req.user?.role !== 'arbiter') {
       throw new ForbiddenError('Only the arbiter can verify the ledger.');
     }

@@ -35,7 +35,9 @@ It cannot detect:
 - **Deleting the newest events, or wiping everything.** What's left is still a valid chain.
   Catching that needs the latest hash held somewhere outside the server.
 - **A full rewrite by someone holding `LEDGER_KEY`.** The key is what makes the chain hard to
-  forge, so whoever has the database and `.env` can rebuild history.
+  forge, so whoever has the database and `.env` can rebuild history. A rewrite that dates an
+  event before the one ahead of it is flagged (`TIMESTAMP_REGRESSION`); one that keeps the
+  dates in order passes.
 - **A lie told at write time.** The ledger proves a record wasn't changed later; it does not
   prove it was true.
 

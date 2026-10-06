@@ -6,6 +6,9 @@ import { createDb } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { raiseDispute, addEvidence, resolveDispute } from '../src/disputes.js';
 import { verifyLedgerIntegrity } from '../src/ledger/reconcile.js';
+import { computeEventHash, verifyChain, type StoredEventRow } from '../src/ledger/chain.js';
+import { getLedgerKey } from '../src/config.js';
+import { readLedgerId } from '../src/db.js';
 import { insertUsers, login, users } from './helpers.js';
 
 // Each attack edits the database directly, the way someone with the file (but not LEDGER_KEY) could.
@@ -132,5 +135,31 @@ describe('tamper matrix', () => {
       "UPDATE disputes SET status = 'RESOLVED', resolutionNote = 'forged', resolvedById = 'u-ari', resolvedAt = ? WHERE id = ?"
     ).run(new Date().toISOString(), id);
     expect(verifyLedgerIntegrity(db)).toMatchObject({ ok: false, reason: 'ORPHAN_ROW', rowId: id });
+  });
+
+  // A keyholder can re-sign events, so only the date order is left to give the rewrite away
+  function rewriteSigned(id: number, occurredAt: string): void {
+    const key = getLedgerKey();
+    const ledgerId = readLedgerId(db) ?? '';
+    let prevHash = getEvent(id - 1).hash;
+    for (let n = id; n <= 4; n++) {
+      const e = getEvent(n);
+      const at = n === id ? occurredAt : e.occurredAt;
+      const hash = computeEventHash(prevHash, { ...e, occurredAt: at, payload: e.payload }, key, ledgerId);
+      db.prepare('UPDATE events SET occurredAt = ?, prevHash = ?, hash = ? WHERE id = ?').run(at, prevHash, hash, n);
+      prevHash = hash;
+    }
+  }
+
+  it('a re-signed event dated before the one ahead of it is a TIMESTAMP_REGRESSION', () => {
+    rewriteSigned(3, '2020-01-01T00:00:00.000Z');
+    expect(verifyLedgerIntegrity(db)).toMatchObject({ ok: false, reason: 'TIMESTAMP_REGRESSION', eventId: 3, disputeId });
+  });
+
+  // Checked on the chain alone: the full check would also flag the live row whose time no longer matches
+  it('equal timestamps are allowed', () => {
+    rewriteSigned(3, getEvent(2).occurredAt);
+    const events = db.prepare('SELECT * FROM events ORDER BY id ASC').all() as StoredEventRow[];
+    expect(verifyChain(events, getLedgerKey(), readLedgerId(db) ?? '')).toMatchObject({ ok: true, eventsChecked: 4 });
   });
 });

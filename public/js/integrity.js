@@ -10,6 +10,7 @@ const REASON_COPY = {
   CHAIN_BROKEN: 'Ledger broken: a record was changed after it was written',
   PAYLOAD_NOT_CANONICAL: 'Stored event data no longer matches what was signed',
   ROW_MISMATCH: 'This record no longer matches what was signed',
+  TIMESTAMP_REGRESSION: 'Event dates run backwards: a record was dated before the one ahead of it',
   ORPHAN_ROW: 'A record exists with no ledger event',
 };
 

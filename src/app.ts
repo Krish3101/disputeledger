@@ -3,9 +3,9 @@ import helmet from 'helmet';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Database } from 'better-sqlite3';
-import { createRouter } from './routes.js';
+import { createRouter, type RateLimitOptions } from './routes.js';
 
-export function createApp(db: Database): Express {
+export function createApp(db: Database, limits?: RateLimitOptions): Express {
   const app = express();
 
   app.set('trust proxy', 1);
@@ -30,7 +30,7 @@ export function createApp(db: Database): Express {
   const publicDir = resolve(currentDir, '../public');
   app.use(express.static(publicDir));
 
-  app.use('/api', createRouter(db));
+  app.use('/api', createRouter(db, limits));
 
   // App-level error handler for body-parser syntax errors, 413s, and uncaught errors
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

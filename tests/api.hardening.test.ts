@@ -84,4 +84,31 @@ describe('hardening', () => {
     expect(log).toHaveBeenCalled();
     log.mockRestore();
   });
+
+  describe('rate limits', () => {
+    const bearer = (t: string) => ['Authorization', `Bearer ${t}`] as const;
+
+    it('integrity checks get a JSON 429 past the per-minute limit', async () => {
+      const limited = createApp(db, { integrityPerMinute: 3 });
+      const token = await login(limited, 'arbiter');
+      for (let i = 0; i < 3; i++) {
+        await request(limited).get('/api/integrity').set(...bearer(token)).expect(200);
+      }
+      const res = await request(limited).get('/api/integrity').set(...bearer(token)).expect(429);
+      expect(res.body.error.code).toBe('TOO_MANY_REQUESTS');
+    });
+
+    it('writes are limited per user, and reads are not', async () => {
+      const limited = createApp(db, { writesPerMinute: 2 });
+      const sam = await login(limited, 'supplier');
+      const dana = await login(limited, 'buyer');
+      const body = { orderReference: 'PO-1', description: 'x', respondentId: 'u-dana' };
+      await request(limited).post('/api/disputes').set(...bearer(sam)).send(body).expect(201);
+      await request(limited).post('/api/disputes').set(...bearer(sam)).send(body).expect(201);
+      const res = await request(limited).post('/api/disputes').set(...bearer(sam)).send(body).expect(429);
+      expect(res.body.error.code).toBe('TOO_MANY_REQUESTS');
+      await request(limited).get('/api/disputes').set(...bearer(sam)).expect(200);
+      await request(limited).post('/api/disputes').set(...bearer(dana)).send({ ...body, respondentId: 'u-sam' }).expect(201);
+    });
+  });
 });
