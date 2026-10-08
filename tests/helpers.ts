@@ -1,6 +1,3 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { Database } from 'better-sqlite3';
 import request from 'supertest';
 import type { Express } from 'express';
@@ -23,10 +20,6 @@ export function insertUsers(db: Database): void {
   for (const u of Object.values(users)) {
     insert.run(u.id, u.username, u.displayName, passwordHash, u.role);
   }
-}
-
-export function tmpDbPath(): string {
-  return join(mkdtempSync(join(tmpdir(), 'dl-test-')), 'dispute.db');
 }
 
 export async function login(app: Express, username: string): Promise<string> {

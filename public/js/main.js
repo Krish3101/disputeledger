@@ -1,10 +1,10 @@
 import { api, getAuthToken, setAuthToken, getCurrentUser, setCurrentUser, logout } from './api.js';
-import { runIntegrityCheck, getLastCheck, clearIntegrity, setGoToEventHandler } from './integrity.js';
+import { runVerify, getLastCheck, clearVerify, setGoToEventHandler } from './verify.js';
 import { showView, showAlert, renderHeader, renderDisputesList, renderDisputeDetail, escapeHtml } from './views.js';
 
 const appHeader = document.getElementById('app-header');
 const btnOpenRaiseModal = document.getElementById('btn-open-raise-modal');
-const btnCheckIntegrity = document.getElementById('btn-check-integrity');
+const btnVerify = document.getElementById('btn-verify');
 const raiseModal = document.getElementById('raise-modal');
 const formRaiseDispute = document.getElementById('form-raise-dispute');
 const selectRespondent = document.getElementById('select-respondent');
@@ -49,7 +49,7 @@ async function showDisputeDetail(disputeId, focusSelectors = []) {
       eventsRes.items || [],
       getLastCheck(),
       submit('evidence', 'notes', 'Evidence added.', ['.evidence-card:last-child']),
-      submit('resolution', 'resolutionNote', 'Ruling recorded.', ['.resolution-card h3'])
+      submit('resolution', 'resolutionNote', 'Resolution recorded.', ['.resolution-card h3'])
     );
 
     // Land on what just changed, or on the event the banner points at
@@ -108,7 +108,7 @@ function setupEventListeners() {
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
     await logout();
-    clearIntegrity();
+    clearVerify();
     appHeader.classList.add('hidden');
     showView('view-login');
   });
@@ -123,17 +123,48 @@ function setupEventListeners() {
   btnOpenRaiseModal.addEventListener('click', openRaiseModal);
   document.getElementById('btn-close-raise').addEventListener('click', () => raiseModal.close());
   document.getElementById('btn-cancel-raise').addEventListener('click', () => raiseModal.close());
-  raiseModal.addEventListener('click', (e) => { if (e.target === raiseModal) raiseModal.close(); });
+
+  // Light-dismiss fallback for browsers without closedby support
+  if (!('closedBy' in HTMLDialogElement.prototype)) {
+    raiseModal.addEventListener('click', (event) => {
+      if (event.target !== raiseModal) return;
+      const rect = raiseModal.getBoundingClientRect();
+      const inDialog = (
+        rect.top <= event.clientY &&
+        event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX &&
+        event.clientX <= rect.left + rect.width
+      );
+      if (!inDialog) raiseModal.close();
+    });
+  }
+
   raiseModal.addEventListener('close', () => {
     formRaiseDispute.reset();
     btnOpenRaiseModal.focus();
   });
 
+  // Sync aria-invalid with modern :user-invalid state
+  const syncAria = (el) => {
+    if (el && typeof el.matches === 'function') {
+      el.setAttribute('aria-invalid', el.matches(':user-invalid') ? 'true' : 'false');
+    }
+  };
+  document.addEventListener('blur', (e) => syncAria(e.target), true);
+  document.addEventListener('input', (e) => {
+    if (e.target?.hasAttribute?.('aria-invalid')) syncAria(e.target);
+  });
+
   formRaiseDispute.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submitBtn = formRaiseDispute.querySelector('button[type="submit"]');
     const orderReference = document.getElementById('input-order-ref').value.trim();
     const respondentId = selectRespondent.value;
     const description = document.getElementById('input-description').value.trim();
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Raising...';
+    }
     try {
       const created = await api('/disputes', {
         method: 'POST',
@@ -144,14 +175,19 @@ function setupEventListeners() {
       showDisputeDetail(created.id);
     } catch (err) {
       showAlert(err.message, 'danger');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Raise Dispute';
+      }
     }
   });
 
-  btnCheckIntegrity.addEventListener('click', async () => {
-    btnCheckIntegrity.disabled = true;
-    btnCheckIntegrity.textContent = 'Checking...';
+  btnVerify.addEventListener('click', async () => {
+    btnVerify.disabled = true;
+    btnVerify.textContent = 'Checking...';
     try {
-      await runIntegrityCheck();
+      await runVerify();
       // Re-draw an open dispute so its rows show the result
       const detail = document.getElementById('view-detail');
       const open = detail.classList.contains('hidden') ? null : detail.dataset.disputeId;
@@ -159,8 +195,8 @@ function setupEventListeners() {
     } catch (err) {
       showAlert(err.message, 'danger');
     } finally {
-      btnCheckIntegrity.disabled = false;
-      btnCheckIntegrity.textContent = 'Verify ledger';
+      btnVerify.disabled = false;
+      btnVerify.textContent = 'Verify ledger';
     }
   });
 

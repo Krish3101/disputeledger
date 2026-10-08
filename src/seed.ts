@@ -2,7 +2,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { createDb } from './db.js';
 import { hashPassword } from './auth.js';
 import { raiseDispute, addEvidence, resolveDispute } from './disputes.js';
-import { verifyLedgerIntegrity } from './ledger/reconcile.js';
+import { verifyLedger } from './ledger.js';
 import { DB_PATH, getLedgerKey } from './config.js';
 
 try {
@@ -12,16 +12,10 @@ try {
   process.exit(1);
 }
 
-// Never wipe a database by accident. Render sets DEMO_RESEED=1 because its disk is wiped anyway.
-if (existsSync(DB_PATH)) {
-  if (process.env.DEMO_RESEED !== '1') {
-    console.error(`${DB_PATH} already exists. Delete it first, or set DEMO_RESEED=1 to replace it.`);
-    process.exit(1);
-  }
-  for (const file of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
-    if (existsSync(file)) {
-      unlinkSync(file);
-    }
+// Always rebuilds: the demo data is small, and Render's free plan has no disk to keep anyway.
+for (const file of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
+  if (existsSync(file)) {
+    unlinkSync(file);
   }
 }
 
@@ -131,14 +125,14 @@ resolveDispute(
   }
 );
 
-const integrity = verifyLedgerIntegrity(db);
+const verified = verifyLedger(db);
 
 console.log('---------------------------------------------------------');
 console.log(`Database seeded at: ${DB_PATH}`);
-const integrityMsg = integrity.ok
-  ? `OK (${integrity.eventsChecked} events verified)`
-  : `FAILED (${integrity.reason}: ${integrity.detail})`;
-console.log(`Ledger Integrity: ${integrityMsg}`);
+const verifyMsg = verified.ok
+  ? `OK (${verified.eventsChecked} events verified)`
+  : `FAILED (${verified.reason}: ${verified.detail})`;
+console.log(`Ledger check: ${verifyMsg}`);
 console.log('---------------------------------------------------------');
 console.log('Seeded Users (Password: password123):');
 for (const u of seedUsers) {

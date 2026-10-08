@@ -35,7 +35,7 @@ export function showAlert(message, type = 'danger') {
 
 const ROLES = {
   partner: { label: 'Partner', list: 'Disputes you are a party to', can: 'Partner: can raise disputes and add evidence to your own cases.' },
-  arbiter: { label: 'Arbiter', list: 'All disputes', can: 'Arbiter: can record rulings and verify the ledger; cannot raise disputes.' },
+  arbiter: { label: 'Arbiter', list: 'All disputes', can: 'Arbiter: can record resolutions and verify the ledger; cannot raise disputes.' },
 };
 
 export function renderHeader(user) {
@@ -46,7 +46,7 @@ export function renderHeader(user) {
   document.getElementById('role-line').textContent = role.can;
   // Partners raise disputes; only the arbiter can verify the whole ledger
   document.getElementById('btn-open-raise-modal').classList.toggle('hidden', user.role !== 'partner');
-  document.getElementById('btn-check-integrity').classList.toggle('hidden', user.role !== 'arbiter');
+  document.getElementById('btn-verify').classList.toggle('hidden', user.role !== 'arbiter');
 }
 
 export function showView(viewName) {
@@ -117,18 +117,18 @@ export function renderDisputeDetail(dispute, events, lastCheck, onAddEvidence, o
 
   const resolutionHtml = isResolved && dispute.resolution ? `
     <div class="resolution-card">
-      <h3>Ruling</h3><p>${escapeHtml(dispute.resolution.note)}</p>
-      <div class="resolution-meta">Ruling by <strong>${escapeHtml(dispute.resolution.by.displayName)}</strong> on ${formatDate(dispute.resolution.at)}</div>
+      <h3>Resolution</h3><p>${escapeHtml(dispute.resolution.note)}</p>
+      <div class="resolution-meta">Resolved by <strong>${escapeHtml(dispute.resolution.by.displayName)}</strong> on ${formatDate(dispute.resolution.at)}</div>
     </div>` : (!isResolved && isArbiter ? `
-    <div class="card card-ruling">
-      <h3>Record a ruling</h3>
+    <div class="card card-resolution">
+      <h3>Record a resolution</h3>
       <p class="subtitle subtitle-tight">This closes the dispute. No more evidence can be added after it.</p>
       <form id="form-resolve-dispute">
         <div class="form-group">
-          <label for="input-resolution-note" class="sr-only">Ruling</label>
+          <label for="input-resolution-note" class="sr-only">Resolution</label>
           <textarea id="input-resolution-note" required rows="3" maxlength="2000" placeholder="Who is liable, and what was agreed"></textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Record ruling</button>
+        <button type="submit" class="btn btn-primary">Record resolution</button>
       </form>
     </div>` : '');
 

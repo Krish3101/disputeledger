@@ -1,15 +1,12 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
 import type { UserRow } from './db.js';
-import { InvalidCredentialsError, type UserRole } from './domain.js';
+import { AppError, type UserRole } from './rules.js';
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 // Node's scrypt defaults, written out so they are visible
 const SCRYPT_KEYLEN = 64;
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
-
-const DUMMY_SALT = '0123456789abcdef0123456789abcdef';
-const DUMMY_HASH = scryptSync('dummy-password', DUMMY_SALT, SCRYPT_KEYLEN, SCRYPT_PARAMS).toString('hex');
 
 export interface AuthUser {
   id: string;
@@ -44,13 +41,9 @@ export function hashToken(token: string): string {
 }
 
 export function createSession(db: Database, userId: string): { token: string; expiresAt: string } {
-  const now = new Date().toISOString();
-  // Purge expired sessions on login
-  db.prepare('DELETE FROM sessions WHERE expiresAt <= ?').run(now);
-
   const token = randomBytes(32).toString('hex');
   const tokenHash = hashToken(token);
-  const createdAt = now;
+  const createdAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
   db.prepare('INSERT INTO sessions (tokenHash, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)').run(
@@ -104,15 +97,8 @@ export function loginUser(
 ): { token: string; user: AuthUser } {
   const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as UserRow | undefined;
 
-  if (!row) {
-    // Constant-time dummy verification to prevent timing attack enumeration
-    verifyPassword(password, `${DUMMY_SALT}:${DUMMY_HASH}`);
-    throw new InvalidCredentialsError();
-  }
-
-  const isValid = verifyPassword(password, row.passwordHash);
-  if (!isValid) {
-    throw new InvalidCredentialsError();
+  if (!row || !verifyPassword(password, row.passwordHash)) {
+    throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid username or password.');
   }
 
   const { token } = createSession(db, row.id);

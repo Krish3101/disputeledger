@@ -15,13 +15,13 @@
       </div>
       <div class="header-right">
         <span id="user-info" class="user-badge"></span>
-        <button id="btn-check-integrity" class="btn btn-secondary hidden">Verify ledger</button>
+        <button id="btn-verify" class="btn btn-secondary hidden">Verify ledger</button>
         <button id="btn-logout" class="btn btn-outline">Log out</button>
       </div>
     </header>
 
     <!-- Result of the last ledger check; stays until the next check -->
-    <section id="integrity-banner" class="integrity-banner hidden" aria-label="Ledger check"></section>
+    <section id="verify-banner" class="verify-banner hidden" aria-label="Ledger check"></section>
 
     <main class="container">
       <div id="alert-container" class="alert-container" role="status" aria-live="polite"></div>
@@ -35,7 +35,7 @@
           <form id="form-login">
             <div class="form-group">
               <label for="input-username">Username</label>
-              <input type="text" id="input-username" required placeholder="e.g. supplier, buyer, arbiter" autocomplete="username">
+              <input type="text" id="input-username" required placeholder="e.g. supplier, buyer, arbiter" autocomplete="username" autocapitalize="none" spellcheck="false">
             </div>
             <div class="form-group">
               <label for="input-password">Password</label>
@@ -68,7 +68,7 @@
           </div>
         </div>
 
-        <dialog id="raise-modal" class="modal-content" aria-labelledby="raise-title">
+        <dialog id="raise-modal" class="modal-content" closedby="any" aria-labelledby="raise-title">
           <div class="modal-header">
             <h2 id="raise-title">Raise a dispute</h2>
             <button class="close-btn" id="btn-close-raise" aria-label="Close">&times;</button>
@@ -77,8 +77,8 @@
             <div class="modal-body">
               <div class="form-group">
                 <label for="input-order-ref">Order Reference</label>
-                <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="[A-Za-z0-9_.\/\-]+" maxlength="100">
-                <small>Letters, numbers and - _ / . only</small>
+                <input type="text" id="input-order-ref" required placeholder="e.g. PO-8834" pattern="[A-Za-z0-9_.\/\-]+" maxlength="100" autocomplete="off" spellcheck="false" aria-describedby="order-ref-hint">
+                <small id="order-ref-hint">Letters, numbers and - _ / . only</small>
               </div>
               <div class="form-group">
                 <label for="select-respondent">Respondent</label>

@@ -8,9 +8,7 @@ let onGoToEvent = () => {};
 
 const REASON_COPY = {
   CHAIN_BROKEN: 'Ledger broken: a record was changed after it was written',
-  PAYLOAD_NOT_CANONICAL: 'Stored event data no longer matches what was signed',
   ROW_MISMATCH: 'This record no longer matches what was signed',
-  TIMESTAMP_REGRESSION: 'Event dates run backwards: a record was dated before the one ahead of it',
   ORPHAN_ROW: 'A record exists with no ledger event',
 };
 
@@ -22,7 +20,7 @@ export function setGoToEventHandler(handler) {
   onGoToEvent = handler;
 }
 
-export function clearIntegrity() {
+export function clearVerify() {
   lastCheck = null;
   renderBanner();
 }
@@ -48,7 +46,7 @@ function timeOf(date) {
 }
 
 export function renderBanner() {
-  const banner = document.getElementById('integrity-banner');
+  const banner = document.getElementById('verify-banner');
   if (!lastCheck) {
     banner.innerHTML = '';
     banner.classList.add('hidden');
@@ -59,12 +57,12 @@ export function renderBanner() {
   banner.classList.remove('hidden');
 
   if (result.ok) {
-    banner.className = 'integrity-banner banner-ok';
+    banner.className = 'verify-banner banner-ok';
     banner.innerHTML = `<p class="container" role="status"><span class="pill-ok">Verified ${result.eventsChecked} events at ${timeOf(at)}</span></p>`;
     return;
   }
 
-  banner.className = 'integrity-banner banner-failed';
+  banner.className = 'verify-banner banner-failed';
   const goTo = result.disputeId
     ? `<button type="button" class="btn btn-on-danger" id="btn-go-to-event">${result.eventId !== undefined ? 'Go to event' : 'Go to dispute'}</button>`
     : '';
@@ -82,8 +80,8 @@ export function renderBanner() {
   if (btn) btn.addEventListener('click', () => onGoToEvent(result.disputeId));
 }
 
-export async function runIntegrityCheck() {
-  const result = await api('/integrity');
+export async function runVerify() {
+  const result = await api('/ledger/verify');
   lastCheck = { result, at: new Date() };
   renderBanner();
   return result;

@@ -18,24 +18,6 @@ if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
 }
 const app = createApp(db);
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Dispute Ledger running at http://localhost:${PORT} (database: ${DB_PATH})`);
 });
-
-function shutdown(signal: string): void {
-  console.log(`\nReceived ${signal}. Gracefully shutting down...`);
-  server.close(() => {
-    try {
-      db.close();
-      console.log('Database connection closed cleanly.');
-    } catch (err) {
-      console.error('Error closing database:', err);
-    }
-    process.exit(0);
-  });
-  // Keep-alive sockets would otherwise hold close() open
-  server.closeIdleConnections();
-}
-
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));

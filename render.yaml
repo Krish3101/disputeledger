@@ -15,6 +15,3 @@ services:
         value: "production"
       - key: LEDGER_KEY
         generateValue: true
-      # free plan has no persistent disk
-      - key: DEMO_RESEED
-        value: "1"

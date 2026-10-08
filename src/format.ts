@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3';
-import type { DisputeStatus } from './domain.js';
-import type { StoredEventRow } from './ledger/chain.js';
+import type { DisputeStatus } from './rules.js';
+import type { StoredEventRow } from './ledger.js';
 
 // The JSON shapes the API returns, and the queries that build them.
 
@@ -9,20 +9,20 @@ export interface UserSummary {
   displayName: string;
 }
 
-export interface EvidenceRepresentation {
+export interface EvidenceResponse {
   id: string;
   submittedBy: UserSummary;
   notes: string;
   createdAt: string;
 }
 
-export interface ResolutionRepresentation {
+export interface ResolutionResponse {
   note: string;
   by: UserSummary;
   at: string;
 }
 
-export interface DisputeRepresentation {
+export interface DisputeResponse {
   id: string;
   orderReference: string;
   description: string;
@@ -30,8 +30,8 @@ export interface DisputeRepresentation {
   claimant: UserSummary;
   respondent: UserSummary;
   createdAt: string;
-  evidence?: EvidenceRepresentation[];
-  resolution: ResolutionRepresentation | null;
+  evidence?: EvidenceResponse[];
+  resolution: ResolutionResponse | null;
 }
 
 export interface DisputeEvent {
@@ -72,7 +72,7 @@ const DISPUTE_SELECT = `
   JOIN users r ON d.respondentId = r.id
   LEFT JOIN users res ON d.resolvedById = res.id`;
 
-function toRepresentation(row: JoinedDisputeRow): DisputeRepresentation {
+function toResponse(row: JoinedDisputeRow): DisputeResponse {
   return {
     id: row.id,
     orderReference: row.orderReference,
@@ -92,7 +92,7 @@ function toRepresentation(row: JoinedDisputeRow): DisputeRepresentation {
   };
 }
 
-export function formatDispute(db: Database, disputeId: string): DisputeRepresentation {
+export function formatDispute(db: Database, disputeId: string): DisputeResponse {
   const row = db.prepare(`${DISPUTE_SELECT} WHERE d.id = ?`).get(disputeId) as JoinedDisputeRow;
   const evidence = db
     .prepare(
@@ -105,7 +105,7 @@ export function formatDispute(db: Database, disputeId: string): DisputeRepresent
     .all(disputeId) as { id: string; submittedById: string; notes: string; createdAt: string; displayName: string }[];
 
   return {
-    ...toRepresentation(row),
+    ...toResponse(row),
     evidence: evidence.map((e) => ({
       id: e.id,
       submittedBy: { id: e.submittedById, displayName: e.displayName },
@@ -116,14 +116,14 @@ export function formatDispute(db: Database, disputeId: string): DisputeRepresent
 }
 
 // Partners only see disputes they are a party to; the arbiter sees all of them.
-export function formatDisputeList(db: Database, user: { id: string; role: string }): DisputeRepresentation[] {
+export function formatDisputeList(db: Database, user: { id: string; role: string }): DisputeResponse[] {
   const rows =
     user.role === 'partner'
       ? db
           .prepare(`${DISPUTE_SELECT} WHERE d.claimantId = ? OR d.respondentId = ? ORDER BY d.createdAt DESC`)
           .all(user.id, user.id)
       : db.prepare(`${DISPUTE_SELECT} ORDER BY d.createdAt DESC`).all();
-  return (rows as JoinedDisputeRow[]).map(toRepresentation);
+  return (rows as JoinedDisputeRow[]).map(toResponse);
 }
 
 export function formatEvents(db: Database, disputeId: string): DisputeEvent[] {

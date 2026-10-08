@@ -7,7 +7,7 @@ const MIN_LEDGER_KEY_LENGTH = 32;
 export function getLedgerKey(): string {
   const key = process.env.LEDGER_KEY;
   if (!key) {
-    throw new Error('LEDGER_KEY is not set. Run ./scripts/start.sh once, or add it to .env.');
+    throw new Error('LEDGER_KEY is not set. Copy .env.example to .env, or set it in the environment.');
   }
   if (key.length < MIN_LEDGER_KEY_LENGTH) {
     throw new Error(`LEDGER_KEY must be at least ${MIN_LEDGER_KEY_LENGTH} characters.`);

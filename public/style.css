@@ -203,6 +203,20 @@ header {
   border-color: transparent;
 }
 
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.form-group input:user-invalid,
+.form-group select:user-invalid,
+.form-group textarea:user-invalid {
+  border-color: var(--danger);
+  background-color: var(--danger-bg);
+}
+
 .form-group small {
   display: block;
   font-size: 0.75rem;
@@ -512,6 +526,7 @@ header {
 
 .modal-content::backdrop {
   background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
 }
 
 .modal-header h2 {
@@ -616,7 +631,7 @@ header {
   margin-top: 1rem;
 }
 
-.card-ruling {
+.card-resolution {
   border-left: 3px solid var(--success);
 }
 

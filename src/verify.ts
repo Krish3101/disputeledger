@@ -1,8 +1,7 @@
 import { existsSync } from 'node:fs';
 import DatabaseConstructor from 'better-sqlite3';
 import { getLedgerKey } from './config.js';
-import { SCHEMA_VERSION } from './db.js';
-import { verifyLedgerIntegrity } from './ledger/reconcile.js';
+import { verifyLedger } from './ledger.js';
 
 // Usage: npm run verify -- --db <path>
 // Exit codes: 0 the ledger checks out, 1 tampered, 2 bad input.
@@ -30,12 +29,7 @@ function run(args: string[]): number {
   // Read-only, so checking a copy can never change it
   const db = new DatabaseConstructor(dbPath, { readonly: true, fileMustExist: true });
   try {
-    if (db.pragma('user_version', { simple: true }) !== SCHEMA_VERSION) {
-      console.error(`${dbPath} is not a Dispute Ledger database of schema version ${SCHEMA_VERSION}`);
-      return 2;
-    }
-
-    const result = verifyLedgerIntegrity(db, key);
+    const result = verifyLedger(db, key);
     if (result.ok) {
       console.log(`OK ${result.eventsChecked} events, head ${result.head.hash.slice(0, 8)}`);
       return 0;
